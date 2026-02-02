@@ -12,7 +12,7 @@ This project is a single-page landing experience designed to help monetize Ultim
 ## Customize For Your Profile
 1. **Update metrics** in `index.html` (performance snapshot).
 2. **Set your profile link** on the "Copy Profile Link" button and in the share message.
-3. **Adjust pricing** to match your Ultima Markets offer tiers.
+3. **Confirm the 20% profit split** offer copy and CTA text.
 4. **Replace content copy** with your latest weekly recap and risk notes.
 
 ## Local Usage
