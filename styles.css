@@ -261,7 +261,9 @@ a {
 .price-card,
 .asset-card,
 .channel-card,
-.metric-card {
+.metric-card,
+.strategy-card,
+.traffic-card {
     background: var(--surface);
     border-radius: 16px;
     padding: 20px;
@@ -286,7 +288,9 @@ a {
 
 .price-card ul,
 .channel-card ul,
-.metric-card ul {
+.metric-card ul,
+.strategy-card ul,
+.traffic-card ul {
     margin-left: 18px;
     color: var(--muted);
 }

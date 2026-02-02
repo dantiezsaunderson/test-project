@@ -4,7 +4,8 @@ This project is a single-page landing experience designed to help monetize Ultim
 
 ## What's Included
 - A clear plan and weekly execution timeline
-- Suggested offer tiers and CTA copy
+- A grid martingale strategy overview with key features
+- A single 20% profit split offer with CTA copy
 - Growth channel recommendations and a 14-day content schedule
 - Tracking metrics and a checklist with progress tracking
 - A pre-written share message with copy-to-clipboard buttons
