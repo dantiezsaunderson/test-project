@@ -386,12 +386,28 @@ bool HasOpenPosition()
 //+------------------------------------------------------------------+
 //| Utility: Normalize lot size                                       |
 //+------------------------------------------------------------------+
+int GetVolumeDigits()
+{
+   double step = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_STEP);
+   int digits = 0;
+   if(step <= 0.0)
+      return 2;
+
+   while(step < 1.0 && digits < 8)
+   {
+      step *= 10.0;
+      digits++;
+   }
+
+   return digits;
+}
+
 double NormalizeLot(const double lot)
 {
    double minLot = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN);
    double maxLot = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MAX);
    double step = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_STEP);
-   int digits = (int)SymbolInfoInteger(_Symbol, SYMBOL_VOLUME_DIGITS);
+   int digits = GetVolumeDigits();
 
    double normalized = MathMax(minLot, MathMin(maxLot, lot));
    normalized = MathFloor(normalized / step) * step;
