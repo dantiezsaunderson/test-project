@@ -1,0 +1,23 @@
+[
+  {
+    "id": "TEMPLATE",
+    "title": "",
+    "artist": "",
+    "year": "",
+    "catalog_number": "",
+    "format": "",
+    "genre_lane": "",
+    "era": "",
+    "assets": {
+      "cover_image": "",
+      "audio_clip": "",
+      "photo_credit": ""
+    },
+    "copy": {
+      "short": "",
+      "long": "",
+      "quote": ""
+    },
+    "sources": []
+  }
+]

@@ -1,0 +1,19 @@
+KMS Records Key Quotes (Verification Required)
+===========================================
+No external quotes were verified in this environment.
+Add quotes only after confirming source, date, and publication.
+
+Format:
+QUOTE | SPEAKER | SOURCE | YEAR | NOTES
+
+TBD | Kevin Saunderson | Interview (source link) | YYYY | Origin story + vision
+TBD | KMS Artist | Press (source link) | YYYY | Impact on Detroit sound
+TBD | Journalist / Historian | Article / book | YYYY | Cultural context
+TBD | DJ / Producer | Interview | YYYY | Global crossover moment
+TBD | Engineer / Studio | Archive note | YYYY | Production legacy
+
+Suggested Source Types:
+- Primary interviews (audio/video)
+- Print/press archives
+- Official KMS press releases
+- Documented liner notes
