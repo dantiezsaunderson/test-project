@@ -4,59 +4,223 @@
     box-sizing: border-box;
 }
 
+:root {
+    --bg: #f3f4f6;
+    --surface: #ffffff;
+    --text: #0f172a;
+    --muted: #6b7280;
+    --primary: #2563eb;
+    --primary-dark: #1e40af;
+    --border: #e5e7eb;
+    --shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
+}
+
 body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
     line-height: 1.6;
-    color: #333;
-    background-color: #f5f5f5;
+    color: var(--text);
+    background-color: var(--bg);
+}
+
+a {
+    color: var(--primary);
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
 }
 
 .container {
-    max-width: 800px;
+    max-width: 1000px;
     margin: 0 auto;
-    padding: 20px;
+    padding: 32px 20px 60px;
 }
 
-header {
+.hero {
     text-align: center;
-    margin-bottom: 40px;
-    padding: 20px;
-    background-color: #4CAF50;
-    color: white;
-    border-radius: 5px;
+    margin-bottom: 32px;
+    padding: 32px;
+    background: linear-gradient(135deg, #0f172a, #1e3a8a);
+    color: #ffffff;
+    border-radius: 16px;
+    box-shadow: var(--shadow);
 }
 
-header h1 {
-    margin-bottom: 10px;
+.hero h1 {
+    margin-top: 16px;
+    margin-bottom: 12px;
+    font-size: 2.2rem;
+}
+
+.hero p {
+    margin-bottom: 12px;
+    color: #e2e8f0;
+}
+
+.badge {
+    display: inline-block;
+    padding: 6px 14px;
+    border-radius: 999px;
+    background-color: rgba(255, 255, 255, 0.15);
+    font-size: 0.85rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.cta-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: center;
+    margin: 18px 0 8px;
+}
+
+.btn {
+    border: none;
+    border-radius: 10px;
+    padding: 10px 18px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.btn.primary {
+    background-color: var(--primary);
+    color: #ffffff;
+    box-shadow: 0 10px 20px rgba(37, 99, 235, 0.3);
+}
+
+.btn.primary:hover {
+    background-color: var(--primary-dark);
+}
+
+.btn.ghost {
+    background-color: #ffffff;
+    color: var(--text);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+}
+
+.meta {
+    font-size: 0.95rem;
+    color: #cbd5f5;
+}
+
+main {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.grid {
+    display: grid;
+    gap: 24px;
+}
+
+.grid.two {
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
 }
 
 .card {
-    background-color: white;
-    padding: 30px;
-    border-radius: 5px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    margin-bottom: 30px;
+    background-color: var(--surface);
+    padding: 28px;
+    border-radius: 16px;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
 }
 
 h2 {
-    margin-bottom: 20px;
-    color: #4CAF50;
+    margin-bottom: 16px;
+    font-size: 1.4rem;
 }
 
-ul {
-    margin-left: 20px;
-    margin-bottom: 20px;
+h3 {
+    margin-bottom: 10px;
+}
+
+.muted {
+    color: var(--muted);
+}
+
+.steps,
+.checklist,
+.edge-list {
+    list-style: none;
+    margin-top: 14px;
+    display: grid;
+    gap: 10px;
+}
+
+.steps li,
+.checklist li,
+.edge-list li {
+    padding-left: 18px;
+    position: relative;
+}
+
+.steps li::before,
+.checklist li::before,
+.edge-list li::before {
+    content: "-";
+    position: absolute;
+    left: 0;
+    color: var(--primary);
+    font-weight: 700;
+}
+
+.market-selector {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 16px 0;
+}
+
+.pill {
+    border: 1px solid var(--border);
+    background-color: #ffffff;
+    color: var(--text);
+    padding: 8px 14px;
+    border-radius: 999px;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.pill.active {
+    background-color: var(--primary);
+    color: #ffffff;
+    border-color: var(--primary);
+}
+
+.market-panel {
+    margin-top: 10px;
+    padding: 18px;
+    background-color: #f8fafc;
+    border-radius: 12px;
+    border: 1px dashed var(--border);
 }
 
 footer {
     text-align: center;
     margin-top: 40px;
     padding: 20px;
-    color: #666;
-    border-top: 1px solid #ddd;
+    color: var(--muted);
+    border-top: 1px solid var(--border);
 }
 
 #timestamp {
-    font-weight: bold;
-    color: #4CAF50;
+    font-weight: 700;
+}
+
+@media (max-width: 640px) {
+    .hero {
+        padding: 24px;
+    }
+
+    .hero h1 {
+        font-size: 1.8rem;
+    }
 }

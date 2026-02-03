@@ -1,14 +1,15 @@
-# Test Project for AI Agent Verification
+# Clawd Bot Trading Assistant
 
-This is a simple test project created to verify that the AI agent can successfully:
-- Create a new project
-- Push it to GitHub
-- Deploy it to Render
+This project is a lightweight landing page that outlines how to set up a personal
+Clawd bot trading assistant powered by [openclaw.ai](https://openclaw.ai).
+It highlights multi-market edge discovery across crypto, forex, collectibles,
+and meme coins while emphasizing risk guardrails.
 
 ## Project Structure
-- index.html - Main HTML file
-- styles.css - CSS styling
-- script.js - JavaScript functionality
+- index.html - Main HTML layout and content
+- styles.css - Styling for the landing page
+- script.js - Interactive market playbook and copy-to-clipboard
 
-## Deployment Information
-This project will be deployed to Render to verify the AI agent's deployment capabilities.
+## Notes
+- The experience is educational and research-focused.
+- The content is not financial advice. Always manage risk.
