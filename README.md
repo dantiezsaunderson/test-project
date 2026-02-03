@@ -5,6 +5,9 @@ Clawd bot trading assistant powered by [openclaw.ai](https://openclaw.ai).
 It highlights multi-market edge discovery across crypto, forex, collectibles,
 and meme coins while emphasizing risk guardrails.
 
+It also includes a quick-start guide on how to use the bot in practice, from
+defining a thesis and connecting data to paper testing and go-live guardrails.
+
 ## Project Structure
 - index.html - Main HTML layout and content
 - styles.css - Styling for the landing page
