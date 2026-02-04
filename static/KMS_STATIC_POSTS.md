@@ -6,8 +6,8 @@ PILLAR 1 — KMS LEGACY SERIES (15)
 ---------------------------------
 L-POST-01 | Founded in Detroit
 File: founded-in-detroit-2026-02-03.png
-On-image: "Founded in Detroit. Built for the world."
-Visual: Detroit skyline + archival grain + KMS logo.
+On-image: "Founded in Detroit, 1987."
+Visual: Detroit skyline + 1987 date stamp + KMS logo.
 
 L-POST-02 | Before the algorithm
 File: before-the-algorithm-2026-02-04.png
@@ -16,18 +16,18 @@ Visual: club silhouette, minimal type.
 
 L-POST-03 | The blueprint years
 File: blueprint-years-2026-02-05.png
-On-image: "The blueprint years."
-Visual: early flyer texture, year stamp (TBD).
+On-image: "KMS 010: The Sound (1987)"
+Visual: early label scan + grain.
 
 L-POST-04 | Tape to global
 File: tape-to-global-2026-02-06.png
-On-image: "Tape to global."
-Visual: cassette + world map dots.
+On-image: "Inner City: Big Fun (1988)"
+Visual: sleeve crop + UK chart tag.
 
 L-POST-05 | Detroit frequency
 File: detroit-frequency-2026-02-07.png
-On-image: "Detroit’s frequency."
-Visual: waveform over city grid.
+On-image: "KMS = Kevin Maurice Saunderson"
+Visual: initials lockup + city grid.
 
 L-POST-06 | Archive detail
 File: archive-detail-2026-02-08.png
@@ -36,8 +36,8 @@ Visual: sleeve macro with grain.
 
 L-POST-07 | Legacy capsule — Year TBD
 File: legacy-capsule-year-tbd-2026-02-09.png
-On-image: "Legacy Capsule: [Year]"
-Visual: number stamp + sleeve edge.
+On-image: "Legacy Capsule: 1989-1992"
+Visual: year stamps + sleeve edge.
 
 L-POST-08 | KMS mark
 File: kms-mark-2026-02-10.png
@@ -46,13 +46,13 @@ Visual: logo lockup on black, accent gold.
 
 L-POST-09 | The underground grammar
 File: underground-grammar-2026-02-11.png
-On-image: "The underground grammar."
-Visual: typography study.
+On-image: "Techno Boulevard"
+Visual: Metroplex / Transmat / KMS block map.
 
 L-POST-10 | Built by hands
 File: built-by-hands-2026-02-12.png
-On-image: "Built by hands."
-Visual: studio hands + knobs.
+On-image: "Hand-delivered test pressings."
+Visual: studio hands + record sleeves.
 
 L-POST-11 | City of makers
 File: city-of-makers-2026-02-13.png
@@ -61,13 +61,13 @@ Visual: Detroit street shot.
 
 L-POST-12 | The archive speaks
 File: archive-speaks-2026-02-14.png
-On-image: "The archive speaks."
-Visual: photo contact sheet.
+On-image: "KMS 035: Can You Feel It (1992)"
+Visual: label scan + MK remix note.
 
 L-POST-13 | Legacy in motion
 File: legacy-in-motion-2026-02-15.png
-On-image: "Legacy in motion."
-Visual: blurred crowd + lights.
+On-image: "25th (2012) · 30th (2017)"
+Visual: compilation art + EP cover.
 
 L-POST-14 | Detroit made it honest
 File: detroit-made-it-honest-2026-02-16.png
@@ -76,14 +76,14 @@ Visual: stark portrait.
 
 L-POST-15 | Sound as history
 File: sound-as-history-2026-02-17.png
-On-image: "Sound as history."
-Visual: vinyl macro.
+On-image: "The Reese bassline."
+Visual: vinyl macro + waveform.
 
 PILLAR 2 — ARTIST SPOTLIGHT CARDS (20) — PSD + PNG
 --------------------------------------------------
 AS-CARD-01 | Kevin Saunderson
 File: artist-card-kevin-saunderson-2026-02-18.psd/.png
-On-image: "Kevin Saunderson" + short quote line (TBD).
+On-image: "Kevin Saunderson" + "I wanted to control what I did with my record."
 Visual: portrait + signature + catalog highlight.
 
 AS-CARD-02 | Dantiez Saunderson
@@ -185,43 +185,43 @@ PILLAR 3 — RECORD MOMENTS (12)
 ------------------------------
 RM-POST-01 | This week in KMS history
 File: this-week-in-kms-history-2026-03-10.png
-On-image: "This week in KMS history."
-Visual: date card + sleeve crop.
+On-image: "1987: The Sound (KMS 010)"
+Visual: date card + label crop.
 
 RM-POST-02 | Sleeve to sound
 File: sleeve-to-sound-2026-03-11.png
-On-image: "Sleeve to sound."
+On-image: "Big Fun (1988)"
 Visual: cover + waveform.
 
 RM-POST-03 | The B-side speaks
 File: b-side-speaks-2026-03-12.png
-On-image: "The B-side speaks."
-Visual: label macro.
+On-image: "E-Dancer (1991)"
+Visual: label macro + catalog note.
 
 RM-POST-04 | Catalog number
 File: catalog-number-2026-03-13.png
-On-image: "Catalog no. [TBD]"
-Visual: type-led stamp.
+On-image: "Catalog no. KMS 033"
+Visual: type-led stamp + year tag.
 
 RM-POST-05 | Artwork detail
 File: artwork-detail-2026-03-14.png
-On-image: "Artwork detail."
-Visual: texture zoom.
+On-image: "Fix - Flash (1993)"
+Visual: texture zoom + artist tag.
 
 RM-POST-06 | Crate dig
 File: crate-dig-2026-03-15.png
-On-image: "Crate dig."
+On-image: "Kenny Larkin - Smile (1998)"
 Visual: hands + sleeves.
 
 RM-POST-07 | Remix moment
 File: remix-moment-2026-03-16.png
-On-image: "Remix moment."
+On-image: "Good Love (Reese Remix) 2001"
 Visual: dual sleeve split.
 
 RM-POST-08 | Pressing memory
 File: pressing-memory-2026-03-17.png
-On-image: "Pressed in time."
-Visual: pressing plant photo.
+On-image: "Pressed in Detroit."
+Visual: pressing plant photo + Archer note.
 
 RM-POST-09 | Radio memory
 File: radio-memory-2026-03-18.png
@@ -235,12 +235,12 @@ Visual: needle closeup.
 
 RM-POST-11 | A/B sleeve comparison
 File: ab-sleeve-comparison-2026-03-20.png
-On-image: "Then / Now"
+On-image: "Then / Now: 1987 vs 2017"
 Visual: side-by-side sleeves.
 
 RM-POST-12 | 30 seconds of history
 File: thirty-seconds-of-history-2026-03-21.png
-On-image: "30 seconds of history."
+On-image: "Rock to the Beat (1989)"
 Visual: waveform + cover.
 
 PILLAR 5 — FAMILY & FUTURE QUOTES (4)

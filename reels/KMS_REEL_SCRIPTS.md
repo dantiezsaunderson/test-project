@@ -4,50 +4,50 @@ Tone: Detroit, underground, warm authority. No corporate language.
 
 PILLAR 1 — KMS LEGACY SERIES (10)
 ---------------------------------
-L-REEL-01 — Founded in Detroit. Built for the world.
+L-REEL-01 — Detroit, 1987.
 Filename: founded-in-detroit-2026-02-03.mp4
-Hook text: "Founded in Detroit."
+Hook text: "Detroit, 1987."
 Beats:
-1) Archive skyline + studio shot
-2) "Built for the world."
-3) "KMS Records · Legacy Capsule"
-Caption: Detroit to everywhere. This is where it starts.
+1) Archive skyline + 1987 date stamp
+2) "KMS Records founded by Kevin Saunderson"
+3) "KMS = Kevin Maurice Saunderson"
+Caption: 1987. Detroit. KMS Records begins.
 Notes: Add grain, date stamp, minimal logo.
 
-L-REEL-02 — Before the algorithm
+L-REEL-02 — Techno Boulevard
 Filename: before-the-algorithm-2026-02-04.mp4
-Hook text: "Before the algorithm,"
+Hook text: "Techno Boulevard."
 Beats:
 1) Club crowd silhouettes
-2) "there was the underground."
-3) KMS logo + year stamp (TBD)
+2) "Metroplex. Transmat. KMS."
+3) "Same block, same era."
 Caption: We moved by sound, not clicks.
 
-L-REEL-03 — The blueprint years
+L-REEL-03 — First wave (1987-1988)
 Filename: blueprint-years-2026-02-05.mp4
-Hook text: "The blueprint years."
+Hook text: "First wave, 87-88."
 Beats:
-1) Early flyer closeups
-2) "Detroit made it real."
-3) "KMS Legacy Capsule"
+1) KMS 010 "The Sound" label closeup
+2) KMS 011 "When We Used To Play"
+3) KMS 015 "Big Fun"
 Caption: Built in the dark. Heard worldwide.
 
-L-REEL-04 — Tape to global
+L-REEL-04 — Big Fun crossover
 Filename: tape-to-global-2026-02-06.mp4
-Hook text: "Tape to global."
+Hook text: "Big Fun, 1988."
 Beats:
-1) Cassette reel + tape hiss
-2) "From basements to broadcast."
-3) "KMS Records"
+1) Inner City sleeve scan
+2) "Detroit techno meets soulful vocals."
+3) "UK Top 10 crossover"
 Caption: History in motion.
 
-L-REEL-05 — The city’s frequency
+L-REEL-05 — KMS initials
 Filename: citys-frequency-2026-02-07.mp4
-Hook text: "Detroit’s frequency."
+Hook text: "KMS."
 Beats:
-1) Street footage
-2) "Signal carried by KMS."
-3) "Legacy Capsule"
+1) Early label closeup
+2) "Kevin Maurice Saunderson"
+3) "Detroit's frequency."
 Caption: The signal never stopped.
 
 L-REEL-06 — Archives speak
@@ -73,26 +73,26 @@ Filename: label-with-lineage-2026-02-10.mp4
 Hook text: "A label with lineage."
 Beats:
 1) Photo strip montage
-2) "25+ years in the same frequency."
-3) "KMS Records"
+2) "25th anniversary compilation (2012)"
+3) "30th anniversary EPs (2017)"
 Caption: Built by hands. Carried by time.
 
-L-REEL-09 — Legacy capsule: Year TBD
+L-REEL-09 — Legacy capsule: 1989-1992
 Filename: legacy-capsule-year-tbd-2026-02-11.mp4
-Hook text: "Legacy Capsule: Year TBD"
+Hook text: "Legacy Capsule: 1989-1992"
 Beats:
-1) Year stamp animation (TBD)
-2) "Key releases, key faces."
-3) "KMS Records"
-Caption: Fill in with verified year + releases.
+1) "1989" stamp + "Rock to the Beat"
+2) "1991" stamp + "Hardcore Techno" / "Pump The Move"
+3) "1992" stamp + "Can You Feel It"
+Caption: Key releases, key faces.
 
-L-REEL-10 — Detroit made it honest
+L-REEL-10 — Hand-delivered
 Filename: detroit-made-it-honest-2026-02-12.mp4
-Hook text: "Detroit made it honest."
+Hook text: "Hand-delivered."
 Beats:
 1) Studio lights, knobs
-2) "KMS kept it that way."
-3) "Legacy Capsule"
+2) "Test pressings to the clubs."
+3) "KMS Records"
 Caption: Truth in the grooves.
 
 PILLAR 2 — ARTIST SPOTLIGHTS (10)
@@ -194,9 +194,9 @@ Filename: this-week-in-kms-history-2026-02-23.mp4
 Hook text: "This week in KMS history."
 Beats:
 1) Date card
-2) "Release: [Title]"
-3) "Year: [YYYY]"
-Caption: Fill with verified release info.
+2) "KMS 010: The Sound"
+3) "1987"
+Caption: This week in KMS history: "The Sound" (1987).
 
 RM-REEL-02 — Sleeve to sound
 Filename: sleeve-to-sound-2026-02-24.mp4
@@ -227,12 +227,12 @@ Caption: Every groove is a timestamp.
 
 RM-REEL-05 — The catalog number
 Filename: catalog-number-2026-02-27.mp4
-Hook text: "Catalog number: [TBD]"
+Hook text: "Catalog number: KMS 015"
 Beats:
 1) Number stamp
-2) "A lineage you can track."
-3) "KMS"
-Caption: Add release data once verified.
+2) "Inner City - Big Fun"
+3) "1988"
+Caption: A lineage you can track.
 
 RM-REEL-06 — Artwork detail
 Filename: artwork-detail-2026-02-28.mp4
@@ -275,9 +275,9 @@ Filename: remix-moment-2026-03-04.mp4
 Hook text: "The remix moment."
 Beats:
 1) Two sleeves layered
-2) "Original → Rework"
-3) "KMS"
-Caption: Add both credits.
+2) "Inner City → Good Love (Reese Remix)"
+3) "2001"
+Caption: Original to rework. Both get credit.
 
 RM-REEL-11 — Radio memory
 Filename: radio-memory-2026-03-05.mp4
@@ -303,8 +303,8 @@ KT-REEL-01 — Then vs Now: Flyer to Festival
 Filename: then-vs-now-flyer-festival-2026-03-07.mp4
 Hook text: "Then / Now"
 Beats:
-1) 90s flyer scan (TBD)
-2) Modern stage shot (TBD)
+1) 90s KMS flyer scan (archive)
+2) 2017 30th Anniversary EP cover
 3) "Same Detroit pulse."
 Caption: Contrast the scale, honor the roots.
 
@@ -360,7 +360,7 @@ Filename: the-handoff-2026-03-13.mp4
 Hook text: "The handoff."
 Beats:
 1) Studio handshake
-2) "Same frequency."
+2) "30th Anniversary EPs (2017)"
 3) "KMS"
 Caption: Built together, moving ahead.
 

@@ -4,21 +4,21 @@ Tone: Detroit, underground, warm authority. Keep it human, never corporate.
 
 PILLAR 1 — KMS LEGACY SERIES (15 SHORT + LONG TEMPLATE)
 -------------------------------------------------------
-L-CAP-01: Detroit to everywhere. This is where it starts.
+L-CAP-01: 1987. Detroit. KMS Records begins.
 L-CAP-02: Before the algorithm, there was the underground.
-L-CAP-03: Blueprint years. Hard edges. Honest sound.
-L-CAP-04: Tape to global. Signal carried far.
+L-CAP-03: KMS 010. "The Sound." Blueprint years.
+L-CAP-04: Inner City "Big Fun" (1988). Detroit to the world.
 L-CAP-05: Detroit’s frequency never left the room.
 L-CAP-06: Archive detail. Memory in the texture.
-L-CAP-07: Legacy capsule: [Year]. Fill with verified data.
+L-CAP-07: Legacy capsule: 1989-1992.
 L-CAP-08: KMS Records. Built by hands, kept by time.
 L-CAP-09: The underground grammar is simple: truth.
 L-CAP-10: Built by hands. Moved by sound.
 L-CAP-11: City of makers. City of sound.
-L-CAP-12: The archive speaks if you listen.
-L-CAP-13: Legacy in motion. Past in the present.
+L-CAP-12: "Can You Feel It" (1992). The archive speaks.
+L-CAP-13: 25th (2012). 30th (2017). Legacy in motion.
 L-CAP-14: Detroit made it honest.
-L-CAP-15: Sound as history.
+L-CAP-15: The Reese bassline. Sound as history.
 
 Legacy Long Template:
 [Legacy Capsule: Year/Release] — A short note on why this moment matters to Detroit,
@@ -84,18 +84,18 @@ KMS family: [Why this artist is part of the lineage]. Use verified references.
 
 PILLAR 3 — RECORD MOMENTS (12 CAPTIONS)
 ---------------------------------------
-RM-CAP-01: This week in KMS history: [Release Title], [Year]. Verified info only.
+RM-CAP-01: This week in KMS history: "The Sound" (1987).
 RM-CAP-02: Sleeve to sound. A cover can hold a whole decade.
 RM-CAP-03: The B-side speaks. Deep cuts, deep roots.
-RM-CAP-04: Catalog no. [TBD]. Lineage you can track.
+RM-CAP-04: Catalog no. KMS 015. Lineage you can track.
 RM-CAP-05: Artwork detail. Credit the designer.
 RM-CAP-06: Crate dig. Detroit in the hands.
-RM-CAP-07: Remix moment. Original → rework. Both get credit.
+RM-CAP-07: Remix moment. "Good Love (Reese Remix)" (2001).
 RM-CAP-08: Pressed in time. Every groove is a timestamp.
 RM-CAP-09: Radio memory. Late nights, long drives.
 RM-CAP-10: The needle drop. Instant time travel.
 RM-CAP-11: Then / Now. Same spirit, new shape.
-RM-CAP-12: 30 seconds of history. Turn it up.
+RM-CAP-12: "Rock to the Beat" (1989). 30 seconds of history.
 
 PILLAR 4 — KMS VS TIME (CAPTION SET)
 ------------------------------------

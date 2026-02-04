@@ -8,45 +8,45 @@ L-CAR-01 | Origins in Detroit
 File: origins-in-detroit-2026-02-03
 Slides:
 1) Cover: "Origins in Detroit"
-2) "Founding year: [TBD]" + archive photo
-3) "The vision: [TBD quote]" + portrait
-4) "First wave releases: [TBD]"
+2) "Founding year: 1987" + archive photo
+3) "The vision: control the music, control the timeline." + portrait
+4) "First wave: KMS 010 The Sound / KMS 011 When We Used To Play / KMS 015 Big Fun"
 5) "Legacy capsule: KMS Records"
 
 L-CAR-02 | Early Detroit Years
 File: early-detroit-years-2026-02-10
 Slides:
 1) Cover: "Early Detroit Years"
-2) "Studios + crews: [TBD]"
-3) "Key release: [TBD]"
-4) "Design language: [TBD]"
+2) "Studios + crews: Metroplex / Transmat / KMS on one block"
+3) "Key release: Reese & Santonio - The Sound (1987)"
+4) "Design language: utilitarian labels + gritty typography"
 5) "Impact: Detroit’s signal"
 
 L-CAR-03 | Global Expansion
 File: global-expansion-2026-02-17
 Slides:
 1) Cover: "Global Expansion"
-2) "UK/Europe crossover: [TBD]"
-3) "Tours + radio: [TBD]"
-4) "Remix era: [TBD]"
+2) "UK/Europe crossover: Inner City - Big Fun (UK Top 10)"
+3) "International reach via Virgin distribution (per dossier)"
+4) "Remix era: History Elevate projects (2000s)"
 5) "KMS abroad"
 
 L-CAR-04 | Catalog Evolution
 File: catalog-evolution-2026-02-24
 Slides:
 1) Cover: "Catalog Evolution"
-2) "Catalog numbers: [TBD]"
-3) "Signature sleeves: [TBD]"
-4) "Artists growing the sound"
+2) "Catalog numbers: KMS 010, 011, 015, 022, 032..."
+3) "Signature sleeves: early KMS labels + Ypsilanti address"
+4) "Artists growing the sound: Blake Baxter, Chez Damier, Kenny Larkin"
 5) "Legacy capsule"
 
 L-CAR-05 | Modern Era
 File: modern-era-2026-03-03
 Slides:
 1) Cover: "Modern Era"
-2) "New generation: [TBD]"
-3) "Digital reach: [TBD]"
-4) "Heritage + future"
+2) "2012: Elevate Your Mind (25th anniversary)"
+3) "2017: 30th Anniversary EPs (family + KiNK, Dubfire)"
+4) "Heritage + future in the same catalog"
 5) "KMS Records"
 
 PILLAR 4 — KMS VS TIME (10)
@@ -55,8 +55,8 @@ KT-CAR-01 | Flyer vs Festival
 File: flyer-vs-festival-2026-03-04
 Slides:
 1) Cover: "Then / Now"
-2) Then: 1990s flyer (TBD)
-3) Now: modern stage (TBD)
+2) Then: 1990s KMS flyer (archive)
+3) Now: 2017 30th Anniversary EP art
 4) "Same pulse, bigger stage."
 5) "KMS vs Time"
 
