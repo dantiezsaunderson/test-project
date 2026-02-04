@@ -1,0 +1,6 @@
+<svg width="1080" height="1080" viewBox="0 0 1080 1080" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1080" height="1080" rx="120" fill="#0B0C10"/>
+  <rect x="70" y="70" width="940" height="940" rx="110" stroke="#F2C14E" stroke-width="6"/>
+  <text x="140" y="640" fill="none" stroke="#F4F6FB" stroke-width="6" font-family="Space Grotesk, Inter, Arial, sans-serif" font-size="360" font-weight="800" letter-spacing="18">KMS</text>
+  <text x="160" y="760" fill="#A5ACB8" font-family="IBM Plex Mono, Inter, Arial, sans-serif" font-size="34" letter-spacing="10">RECORDS</text>
+</svg>

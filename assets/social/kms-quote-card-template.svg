@@ -1,0 +1,14 @@
+<svg width="1080" height="1080" viewBox="0 0 1080 1080" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1080" height="1080" fill="#0B0C10"/>
+  <rect x="70" y="70" width="940" height="940" rx="60" stroke="#2A2F3A" stroke-width="2"/>
+  <text x="120" y="250" fill="#A5ACB8" font-family="IBM Plex Mono, Inter, Arial, sans-serif" font-size="28" letter-spacing="6">KMS QUOTE</text>
+  <text x="120" y="420" fill="#F4F6FB" font-family="Space Grotesk, Inter, Arial, sans-serif" font-size="72" font-weight="600">
+    "QUOTE GOES HERE.
+  </text>
+  <text x="120" y="510" fill="#F4F6FB" font-family="Space Grotesk, Inter, Arial, sans-serif" font-size="72" font-weight="600">
+    KEEP IT SHORT."
+  </text>
+  <rect x="120" y="640" width="200" height="8" fill="#F2C14E"/>
+  <text x="120" y="700" fill="#A5ACB8" font-family="IBM Plex Mono, Inter, Arial, sans-serif" font-size="28" letter-spacing="4">KEVIN SAUNDERSON · 2018</text>
+  <text x="120" y="960" fill="#A5ACB8" font-family="IBM Plex Mono, Inter, Arial, sans-serif" font-size="22" letter-spacing="6">KMS RECORDS</text>
+</svg>
