@@ -1,0 +1,15 @@
+{
+  "meta": {
+    "accessToken": "REPLACE_ME",
+    "instagramUserId": "REPLACE_ME",
+    "pageId": "REPLACE_ME"
+  },
+  "paths": {
+    "calendarCsv": "./calendar/KMS_30_DAY_CALENDAR.csv",
+    "outputQueue": "./calendar/posting_queue.json"
+  },
+  "defaults": {
+    "timezone": "America/Detroit",
+    "publishHour": "12:00"
+  }
+}

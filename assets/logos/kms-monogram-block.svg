@@ -1,0 +1,7 @@
+<svg width="1080" height="1080" viewBox="0 0 1080 1080" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1080" height="1080" rx="120" fill="#0B0C10"/>
+  <rect x="80" y="80" width="920" height="920" rx="96" stroke="#2A2F3A" stroke-width="2"/>
+  <text x="140" y="640" fill="#F4F6FB" font-family="Space Grotesk, Inter, Arial, sans-serif" font-size="360" font-weight="800" letter-spacing="20">KMS</text>
+  <rect x="160" y="690" width="760" height="12" fill="#F2C14E"/>
+  <text x="160" y="760" fill="#A5ACB8" font-family="IBM Plex Mono, Inter, Arial, sans-serif" font-size="36" letter-spacing="8">DETROIT</text>
+</svg>

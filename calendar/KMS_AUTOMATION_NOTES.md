@@ -35,3 +35,10 @@ Meta API Notes
 - Carousels require child media upload first
 - Keep captions under 2,200 chars
 - Avoid last-minute edits that break scheduled timestamps
+
+Automation Agent (Local)
+------------------------
+See /automation for a starter Node-based posting agent that:
+- Reads /calendar/KMS_30_DAY_CALENDAR.csv
+- Builds a posting queue JSON
+- Prepares file paths for Meta API scheduling

@@ -48,6 +48,15 @@ Templates
    - Small label macro in corner
    - Caption line in mono
 
+SVG Templates (Ready-to-edit)
+-----------------------------
+Location: /assets/social
+- kms-reel-cover-template.svg
+- kms-quote-card-template.svg
+- kms-artist-spotlight-template.svg
+- kms-timeline-slide-template.svg
+- kms-vinyl-post-template.svg
+
 Export Requirements
 -------------------
 - PNG for graphics, JPG for photos

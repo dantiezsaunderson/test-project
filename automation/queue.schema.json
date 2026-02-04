@@ -1,0 +1,38 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "KMS Posting Queue",
+  "type": "object",
+  "properties": {
+    "generated_at": { "type": "string" },
+    "timezone": { "type": "string" },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "date": { "type": "string" },
+          "day": { "type": "string" },
+          "reel": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "filename": { "type": "string" },
+              "path": { "type": "string" }
+            }
+          },
+          "grid": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "filename": { "type": "string" },
+              "path": { "type": "string" }
+            }
+          },
+          "story_stack": { "type": "string" }
+        },
+        "required": ["date", "day", "reel", "story_stack"]
+      }
+    }
+  },
+  "required": ["generated_at", "timezone", "items"]
+}

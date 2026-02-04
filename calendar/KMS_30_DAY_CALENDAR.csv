@@ -1,0 +1,31 @@
+date,day,reel_id,reel_filename,grid_id,grid_filename,story_stack
+2026-02-03,Tue,L-REEL-01,founded-in-detroit-2026-02-03.mp4,,,Reel teaser / archive still / poll / CTA link
+2026-02-04,Wed,L-REEL-02,before-the-algorithm-2026-02-04.mp4,L-POST-01,founded-in-detroit-2026-02-03.png,Reel teaser / archive still / Q&A sticker / CTA
+2026-02-05,Thu,L-REEL-03,blueprint-years-2026-02-05.mp4,,,BTS detail / sleeve crop / countdown
+2026-02-06,Fri,L-REEL-04,tape-to-global-2026-02-06.mp4,L-POST-02,before-the-algorithm-2026-02-04.png,Reel teaser / archive still / poll / CTA
+2026-02-07,Sat,L-REEL-05,citys-frequency-2026-02-07.mp4,,,Weekend vibe / audio clip / sticker
+2026-02-08,Sun,L-REEL-06,archives-speak-2026-02-08.mp4,,,Archive scan / quote / CTA
+2026-02-09,Mon,L-REEL-07,underground-grammar-2026-02-09.mp4,L-CAR-01,origins-in-detroit-2026-02-03,Carousel preview / archive still / Q&A
+2026-02-10,Tue,L-REEL-08,label-with-lineage-2026-02-10.mp4,,,Reel teaser / sleeve crop / CTA
+2026-02-11,Wed,L-REEL-09,legacy-capsule-year-tbd-2026-02-11.mp4,L-POST-03,blueprint-years-2026-02-05.png,Reel teaser / archive still / poll
+2026-02-12,Thu,L-REEL-10,detroit-made-it-honest-2026-02-12.mp4,,,Studio macro / audio clip / CTA
+2026-02-13,Fri,AS-REEL-01,artist-spotlight-kevin-saunderson-2026-02-13.mp4,L-POST-04,tape-to-global-2026-02-06.png,Artist teaser / photo + quote / CTA
+2026-02-14,Sat,AS-REEL-02,artist-spotlight-dantiez-saunderson-2026-02-14.mp4,,,Artist clip / behind-the-scenes
+2026-02-15,Sun,AS-REEL-03,artist-spotlight-template-a-2026-02-15.mp4,,,Artist spotlight / Q&A sticker
+2026-02-16,Mon,AS-REEL-04,artist-spotlight-template-b-2026-02-16.mp4,AS-CARD-01,artist-card-kevin-saunderson-2026-02-18.png,Artist card preview / archive still
+2026-02-17,Tue,AS-REEL-05,artist-spotlight-template-c-2026-02-17.mp4,,,Release highlight / CTA
+2026-02-18,Wed,AS-REEL-06,artist-spotlight-template-d-2026-02-18.mp4,AS-CARD-02,artist-card-dantiez-saunderson-2026-02-19.png,Artist fact / poll / CTA
+2026-02-19,Thu,AS-REEL-07,artist-spotlight-template-e-2026-02-19.mp4,,,Studio still / quote
+2026-02-20,Fri,AS-REEL-08,artist-spotlight-template-f-2026-02-20.mp4,RM-POST-01,this-week-in-kms-history-2026-03-10.png,Record tease / audio clip
+2026-02-21,Sat,AS-REEL-09,artist-spotlight-template-g-2026-02-21.mp4,,,Weekend archive / CTA
+2026-02-22,Sun,AS-REEL-10,artist-spotlight-template-h-2026-02-22.mp4,,,Artist quote / CTA
+2026-02-23,Mon,RM-REEL-01,this-week-in-kms-history-2026-02-23.mp4,L-CAR-02,early-detroit-years-2026-02-10,Carousel preview / archive still
+2026-02-24,Tue,RM-REEL-02,sleeve-to-sound-2026-02-24.mp4,,,Sleeve detail / poll
+2026-02-25,Wed,RM-REEL-03,b-side-speaks-2026-02-25.mp4,RM-POST-02,sleeve-to-sound-2026-03-11.png,B-side note / CTA
+2026-02-26,Thu,RM-REEL-04,pressing-plant-memory-2026-02-26.mp4,,,Pressing plant clip / CTA
+2026-02-27,Fri,RM-REEL-05,catalog-number-2026-02-27.mp4,RM-POST-03,b-side-speaks-2026-03-12.png,Catalog number / poll
+2026-02-28,Sat,RM-REEL-06,artwork-detail-2026-02-28.mp4,,,Artwork detail / CTA
+2026-03-01,Sun,RM-REEL-07,ab-sleeve-comparison-2026-03-01.mp4,,,A/B sleeve / sticker
+2026-03-02,Mon,RM-REEL-08,thirty-seconds-of-history-2026-03-02.mp4,KT-CAR-01,flyer-vs-festival-2026-03-04,Then/Now preview / CTA
+2026-03-03,Tue,RM-REEL-09,crate-dig-2026-03-03.mp4,,,Radio memory / CTA
+2026-03-04,Wed,RM-REEL-10,remix-moment-2026-03-04.mp4,FF-QUOTE-01,family-code-2026-03-22.png,Quote slide / CTA

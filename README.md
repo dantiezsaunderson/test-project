@@ -24,6 +24,8 @@ and produce high-quality assets for KMS Records social media content. It include
 - captions/ - Caption bank
 - templates/ - Template specs
 - calendar/ - 30-day calendar + automation notes
+- assets/ - Logos and social SVG templates
+- automation/ - Posting agent scaffold
 
 ## Usage
 Open `index.html` in a browser to view the plan. Update the content as new assets

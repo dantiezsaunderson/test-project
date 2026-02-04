@@ -1,0 +1,15 @@
+<svg width="1080" height="1350" viewBox="0 0 1080 1350" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1080" height="1350" fill="#0B0C10"/>
+  <rect x="60" y="60" width="960" height="1230" rx="48" stroke="#2A2F3A" stroke-width="2"/>
+  <text x="120" y="200" fill="#A5ACB8" font-family="IBM Plex Mono, Inter, Arial, sans-serif" font-size="26" letter-spacing="6">KMS TIMELINE</text>
+  <text x="120" y="310" fill="#F4F6FB" font-family="Space Grotesk, Inter, Arial, sans-serif" font-size="90" font-weight="700">YEAR / ERA</text>
+  <rect x="120" y="340" width="260" height="8" fill="#F2C14E"/>
+  <text x="120" y="460" fill="#F4F6FB" font-family="Inter, Arial, sans-serif" font-size="36">
+    Key fact line goes here.
+  </text>
+  <text x="120" y="520" fill="#A5ACB8" font-family="Inter, Arial, sans-serif" font-size="30">
+    Secondary detail or release title.
+  </text>
+  <rect x="120" y="600" width="840" height="520" rx="36" fill="#151824"/>
+  <text x="120" y="1210" fill="#A5ACB8" font-family="IBM Plex Mono, Inter, Arial, sans-serif" font-size="24" letter-spacing="6">KMS RECORDS - DETROIT</text>
+</svg>
