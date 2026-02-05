@@ -21,7 +21,7 @@ be used for market data, macro data, collectibles, and sentiment.
 - fetchers.js - Public API data connectors
 - polymarketClient.js - Polymarket discovery and trading helpers
 - signalEngine.js - Rule-based signal generator
-- notifier.js - Console and webhook alert delivery
+- notifier.js - Console, webhook, and email alert delivery
 - config.js - Environment-driven settings
 
 ## Setup
@@ -58,10 +58,19 @@ Update `.env` to tailor watchlists, thresholds, and alerts.
 Key options:
 - `INTERVAL_MINUTES` - how often the bot runs
 - `WEBHOOK_URL` - send alerts to Slack, Discord, or custom webhooks
+- `EMAIL_ALERT_*` - SMTP email alerts for signals and auto-trades
 - `CRYPTO_IDS`, `MEME_IDS`, `FOREX_SYMBOLS` - watchlist configuration
 - `POKEMON_TCG_API_KEY` - increase Pokemon TCG API rate limits
 - `POLYMARKET_*` - Polymarket discovery and trading controls
 - `BLOFIN_*` - Blofin perps scanning and execution controls
+
+Email alert essentials (see `.env.example`):
+- `EMAIL_ALERT_ENABLED=true`
+- `EMAIL_SMTP_HOST`, `EMAIL_SMTP_PORT`, `EMAIL_SMTP_USER`, `EMAIL_SMTP_PASS`
+- `EMAIL_ALERT_FROM`, `EMAIL_ALERT_TO` (comma-separated list)
+- `EMAIL_ALERT_INCLUDE_DRY_RUN=true` to include dry-run auto-trades
+
+If you use Gmail, create an App Password and use it as `EMAIL_SMTP_PASS`.
 
 ## Polymarket integration
 The bot can scan the Polymarket website, score liquidity/volume/spread, and

@@ -32,7 +32,18 @@ const config = {
     },
     alerts: {
         webhookUrl: process.env.WEBHOOK_URL || '',
-        enableConsole: process.env.ALERT_CONSOLE !== 'false'
+        enableConsole: process.env.ALERT_CONSOLE !== 'false',
+        email: {
+            enabled: process.env.EMAIL_ALERT_ENABLED === 'true',
+            smtpHost: process.env.EMAIL_SMTP_HOST || '',
+            smtpPort: parseNumber(process.env.EMAIL_SMTP_PORT, 587),
+            smtpSecure: process.env.EMAIL_SMTP_SECURE === 'true',
+            smtpUser: process.env.EMAIL_SMTP_USER || '',
+            smtpPass: process.env.EMAIL_SMTP_PASS || '',
+            from: process.env.EMAIL_ALERT_FROM || '',
+            to: parseList(process.env.EMAIL_ALERT_TO, []),
+            includeDryRun: process.env.EMAIL_ALERT_INCLUDE_DRY_RUN === 'true'
+        }
     },
     apiKeys: {
         pokemonTcg: process.env.POKEMON_TCG_API_KEY || ''

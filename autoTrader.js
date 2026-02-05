@@ -1,6 +1,7 @@
 const config = require('./config');
 const blofinClient = require('./blofinClient');
 const dataStore = require('./dataStore');
+const { notifyAutoTrades } = require('./notifier');
 
 const toNumber = (value, fallback = 0) => {
     const parsed = Number(value);
@@ -350,6 +351,7 @@ const runBlofinAutoTrade = async ({ signals, snapshot, reason } = {}) => {
     if (!actions.length) {
         return { status: 'skipped', actions, skipped };
     }
+    await notifyAutoTrades(actions);
     return { status: 'executed', actions, skipped };
 };
 
