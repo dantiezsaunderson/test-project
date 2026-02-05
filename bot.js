@@ -3,6 +3,7 @@ const dataStore = require('./dataStore');
 const fetchers = require('./fetchers');
 const { generateSignals } = require('./signalEngine');
 const { notify } = require('./notifier');
+const { runBlofinAutoTrade } = require('./autoTrader');
 
 const marketFetchers = {
     crypto: fetchers.fetchCrypto,
@@ -25,6 +26,7 @@ const runBot = async ({ reason } = {}) => {
     const errors = [];
     const signals = [];
     const marketsRun = [];
+    const autoTrades = [];
 
     try {
         for (const [market, fetcher] of Object.entries(marketFetchers)) {
@@ -48,6 +50,22 @@ const runBot = async ({ reason } = {}) => {
                 if (marketSignals.length) {
                     signals.push(...marketSignals);
                 }
+                if (market === 'blofin') {
+                    try {
+                        const autoSummary = await runBlofinAutoTrade({
+                            snapshot,
+                            reason
+                        });
+                        if (autoSummary?.actions?.length) {
+                            autoTrades.push(...autoSummary.actions);
+                        }
+                    } catch (autoError) {
+                        errors.push({
+                            market: 'blofin-auto',
+                            message: autoError.message || 'Auto trade error'
+                        });
+                    }
+                }
                 marketsRun.push(market);
             } catch (error) {
                 errors.push({
@@ -68,6 +86,7 @@ const runBot = async ({ reason } = {}) => {
             durationMs,
             reason: reason || 'scheduled',
             signalCount: signals.length,
+            autoTradeCount: autoTrades.length,
             marketsRun,
             errors
         };

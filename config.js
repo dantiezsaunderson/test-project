@@ -27,7 +27,8 @@ const config = {
     storage: {
         filePath: path.resolve(__dirname, process.env.DATA_FILE || 'bot-data.json'),
         maxSnapshots: parseNumber(process.env.MAX_SNAPSHOTS, 50),
-        maxSignals: parseNumber(process.env.MAX_SIGNALS, 200)
+        maxSignals: parseNumber(process.env.MAX_SIGNALS, 200),
+        maxAutoTrades: parseNumber(process.env.MAX_AUTO_TRADES, 200)
     },
     alerts: {
         webhookUrl: process.env.WEBHOOK_URL || '',
@@ -119,7 +120,7 @@ const config = {
                 'ETH-USDT'
             ]),
             highTimeframe: process.env.BLOFIN_HIGH_TIMEFRAME || '1H',
-            entryTimeframe: process.env.BLOFIN_ENTRY_TIMEFRAME || '15m',
+            entryTimeframe: process.env.BLOFIN_ENTRY_TIMEFRAME || '5m',
             highCandleLimit: parseNumber(process.env.BLOFIN_HIGH_CANDLE_LIMIT, 200),
             entryCandleLimit: parseNumber(process.env.BLOFIN_ENTRY_CANDLE_LIMIT, 200),
             scanTop: parseNumber(process.env.BLOFIN_SCAN_TOP, 5),
@@ -131,6 +132,22 @@ const config = {
             marginMode: process.env.BLOFIN_MARGIN_MODE || 'cross',
             positionMode:
                 process.env.BLOFIN_POSITION_MODE || 'net_mode',
+            autoTrade: process.env.BLOFIN_AUTO_TRADE === 'true',
+            autoTradeKillSwitch: process.env.BLOFIN_KILL_SWITCH === 'true',
+            autoTradeCooldownMinutes: parseNumber(
+                process.env.BLOFIN_AUTO_COOLDOWN_MINUTES,
+                60
+            ),
+            autoTradeSessions: parseList(
+                process.env.BLOFIN_AUTO_SESSION_WINDOWS,
+                []
+            ),
+            riskPerTradeUsdt: parseNumber(process.env.BLOFIN_RISK_USDT, 2),
+            maxOpenPositions: parseNumber(
+                process.env.BLOFIN_MAX_OPEN_POSITIONS,
+                1
+            ),
+            autoOrderType: (process.env.BLOFIN_AUTO_ORDER_TYPE || 'market').toLowerCase(),
             strategy: {
                 minCandles: parseNumber(process.env.BLOFIN_ICC_MIN_CANDLES, 120),
                 entryMinCandles: parseNumber(

@@ -4,7 +4,8 @@ const config = require('./config');
 const defaultState = {
     lastRun: null,
     snapshots: {},
-    signals: []
+    signals: [],
+    autoTrades: []
 };
 
 let stateCache = null;
@@ -16,6 +17,9 @@ const ensureStateShape = (state) => {
     }
     if (!Array.isArray(state.signals)) {
         state.signals = [];
+    }
+    if (!Array.isArray(state.autoTrades)) {
+        state.autoTrades = [];
     }
     if (!state.lastRun) {
         state.lastRun = null;
@@ -79,6 +83,15 @@ const addSignals = async (signals) =>
         state.signals = trimArray(state.signals, config.storage.maxSignals);
     });
 
+const addAutoTrade = async (trade) =>
+    updateState((state) => {
+        state.autoTrades.push(trade);
+        state.autoTrades = trimArray(
+            state.autoTrades,
+            config.storage.maxAutoTrades
+        );
+    });
+
 const setLastRun = async (runSummary) =>
     updateState((state) => {
         state.lastRun = runSummary;
@@ -98,6 +111,24 @@ const getSignals = async (limit) => {
     return state.signals.slice(Math.max(state.signals.length - limit, 0));
 };
 
+const getAutoTrades = async (limit) => {
+    const state = await loadState();
+    if (!limit) {
+        return state.autoTrades;
+    }
+    return state.autoTrades.slice(
+        Math.max(state.autoTrades.length - limit, 0)
+    );
+};
+
+const getLastAutoTradeForInstrument = async (instId) => {
+    const state = await loadState();
+    const reversed = [...state.autoTrades].reverse();
+    return (
+        reversed.find((trade) => trade && trade.instId === instId) || null
+    );
+};
+
 const getStatus = async () => {
     const state = await loadState();
     const snapshotCounts = Object.keys(state.snapshots).reduce((acc, market) => {
@@ -108,6 +139,7 @@ const getStatus = async () => {
     return {
         lastRun: state.lastRun,
         signalCount: state.signals.length,
+        autoTradeCount: state.autoTrades.length,
         snapshotCounts
     };
 };
@@ -115,8 +147,11 @@ const getStatus = async () => {
 module.exports = {
     addSnapshot,
     addSignals,
+    addAutoTrade,
     setLastRun,
     getLatestSnapshot,
     getSignals,
+    getAutoTrades,
+    getLastAutoTradeForInstrument,
     getStatus
 };

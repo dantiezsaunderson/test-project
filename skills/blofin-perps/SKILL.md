@@ -8,11 +8,14 @@ metadata: { "openclaw": { "requires": { "bins": ["node"] } } }
 
 This skill scans Blofin perpetuals using the ICC (Indication → Correction →
 Continuation) model and can place **manual** orders when explicitly confirmed.
+It can also run a single auto-trade cycle when the auto-trade guards are enabled.
 
 ## Commands (via exec)
 
 - Scan signals (public):
   - `node {baseDir}/blofin.js scan --limit 5`
+- Run one auto-trade cycle (safe by default):
+  - `node {baseDir}/blofin.js auto --limit 5`
 - View positions (private):
   - `node {baseDir}/blofin.js positions`
 - View balances (private):
@@ -26,5 +29,11 @@ Trading is blocked unless:
 - `BLOFIN_ALLOW_TRADING=true`
 - `BLOFIN_DRY_RUN=false`
 - `--confirm` flag is provided
+
+Auto-trading is blocked unless all of the following are true:
+- `BLOFIN_AUTO_TRADE=true`
+- `BLOFIN_ALLOW_TRADING=true`
+- `BLOFIN_DRY_RUN=false` (use dry-run to simulate)
+- `BLOFIN_KILL_SWITCH=false`
 
 Never enable withdrawals/transfer on the API key. Always review signals first.

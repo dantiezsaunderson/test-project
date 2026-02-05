@@ -82,7 +82,8 @@ Key variables (see `.env.example`):
 ## Blofin perps integration
 The bot scans Blofin perpetuals using the ICC (Indication → Correction → Continuation)
 workflow from the guide (price action only, no indicators). It produces phased signals
-and can place **manual** orders when enabled.
+and can place **manual** orders when enabled. An optional auto-trader can act on
+BUY/SELL phases with additional guardrails.
 
 Key variables (see `.env.example`):
 - `BLOFIN_API_KEY`, `BLOFIN_API_SECRET`, `BLOFIN_API_PASSPHRASE`
@@ -90,6 +91,13 @@ Key variables (see `.env.example`):
 - `BLOFIN_HIGH_TIMEFRAME` / `BLOFIN_ENTRY_TIMEFRAME` - ICC timeframes
 - `BLOFIN_ALLOW_TRADING` - must be `true` to allow manual orders
 - `BLOFIN_DRY_RUN` - must be `false` to actually place orders
+- `BLOFIN_AUTO_TRADE` - must be `true` to enable auto-trading
+- `BLOFIN_KILL_SWITCH` - set `true` to halt auto-trading immediately
+- `BLOFIN_RISK_USDT` - per-trade notional cap (safe default: 2)
+- `BLOFIN_MAX_OPEN_POSITIONS` - hard cap on open positions (safe default: 1)
+- `BLOFIN_AUTO_COOLDOWN_MINUTES` - cooldown between trades per instrument
+- `BLOFIN_AUTO_SESSION_WINDOWS` - optional UTC windows (e.g. `07:00-11:00,13:30-16:00`)
+- `BLOFIN_AUTO_ORDER_TYPE` - `market` only
 
 To run a scan:
 ```bash
@@ -100,6 +108,12 @@ To place a manual order:
 ```bash
 BLOFIN_ALLOW_TRADING=true BLOFIN_DRY_RUN=false \
   node skills/blofin-perps/blofin.js order --inst BTC-USDT --side buy --type market --size 1 --confirm
+```
+
+To run one auto-trade cycle (safe defaults keep this disabled):
+```bash
+BLOFIN_AUTO_TRADE=true BLOFIN_ALLOW_TRADING=true BLOFIN_DRY_RUN=true \
+  node skills/blofin-perps/blofin.js auto --limit 5
 ```
 
 To derive L2 API credentials, use the OpenClaw skill or run:

@@ -6,12 +6,14 @@ require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
 const config = require('../../config');
 const blofinClient = require('../../blofinClient');
 const blofinScanner = require('../../blofinScanner');
+const { runBlofinAutoTrade } = require('../../autoTrader');
 
 const helpText = `
 Blofin Perps CLI
 
 Usage:
   blofin.js scan --limit 5
+  blofin.js auto --limit 5
   blofin.js positions
   blofin.js balance
   blofin.js order --inst BTC-USDT --side buy --type market --size 1 --confirm
@@ -77,6 +79,17 @@ const scanSignals = async (options) => {
     list.forEach((entry) => {
         console.log(formatSignal(entry));
     });
+};
+
+const autoTradeOnce = async (options) => {
+    const scan = await blofinScanner.fetchSignals();
+    const limit = Number(options.limit || 0);
+    const signals = limit > 0 ? scan.signals.slice(0, limit) : scan.signals;
+    const result = await runBlofinAutoTrade({
+        signals,
+        reason: 'cli-auto'
+    });
+    console.log(JSON.stringify(result, null, 2));
 };
 
 const showPositions = async () => {
@@ -163,6 +176,10 @@ const main = async () => {
 
     if (command === 'scan') {
         await scanSignals(options);
+        return;
+    }
+    if (command === 'auto') {
+        await autoTradeOnce(options);
         return;
     }
     if (command === 'positions') {
