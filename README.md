@@ -144,6 +144,8 @@ node skills/blofin-perps/blofin.js report --days 7 --perf
 Performance notes:
 - Evaluation uses entry timeframe candles and assumes **stop-loss is hit first**
   if both stop and target touch within the same candle (conservative).
+- Sessions are bucketed in UTC as: Asia (00:00-07:00), London (07:00-13:00),
+  London/NY overlap (13:00-16:00), NY (16:00-22:00).
 
 To derive L2 API credentials, use the OpenClaw skill or run:
 ```bash

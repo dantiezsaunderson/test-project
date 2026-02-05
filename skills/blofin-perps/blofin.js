@@ -62,6 +62,40 @@ const toNumber = (value, fallback = null) => {
 const sortCandles = (candles) =>
     [...candles].sort((a, b) => Number(a.ts) - Number(b.ts));
 
+const getSessionLabel = (timestamp) => {
+    const date = new Date(timestamp);
+    if (Number.isNaN(date.getTime())) {
+        return 'unknown';
+    }
+    const hour = date.getUTCHours();
+    if (hour >= 13 && hour < 16) {
+        return 'london_ny';
+    }
+    if (hour >= 7 && hour < 13) {
+        return 'london';
+    }
+    if (hour >= 16 && hour < 22) {
+        return 'ny';
+    }
+    return 'asia';
+};
+
+const computeSharpe = (values) => {
+    if (!values.length) {
+        return 0;
+    }
+    const mean =
+        values.reduce((acc, value) => acc + value, 0) / values.length;
+    const variance =
+        values.reduce((acc, value) => acc + (value - mean) ** 2, 0) /
+        values.length;
+    const std = Math.sqrt(variance);
+    if (std === 0) {
+        return 0;
+    }
+    return (mean / std) * Math.sqrt(values.length);
+};
+
 const evaluateTrade = (trade, candles) => {
     const entryPrice = toNumber(trade.price, null);
     const stopLoss = toNumber(
@@ -264,15 +298,32 @@ const reportAutoTrades = async (options) => {
         total: evaluated.length,
         dryRun: evaluated.filter((trade) => trade.status === 'dry-run').length,
         submitted: evaluated.filter((trade) => trade.status !== 'dry-run').length,
+        totalClosed: 0,
+        totalOpen: 0,
         totalNotional: 0,
         avgNotional: 0,
         totalRiskUsd: 0,
         avgRiskUsd: 0,
+        totalR: 0,
+        avgR: 0,
+        sharpeR: 0,
+        profitFactor: 0,
+        winRate: 0,
         outcomes: {},
         byMode: {},
         byInst: {},
-        bySide: {}
+        bySide: {},
+        bySession: {},
+        winRateByInst: {},
+        equityCurve: []
     };
+
+    const closedTrades = [];
+    const rSeries = [];
+    let wins = 0;
+    let losses = 0;
+    let grossWin = 0;
+    let grossLoss = 0;
 
     evaluated.forEach((trade) => {
         const instId = trade.instId || 'unknown';
@@ -281,18 +332,104 @@ const reportAutoTrades = async (options) => {
         const notional = Number(trade.notional || 0);
         const riskUsd = Number(trade.riskUsdActual || 0);
         const outcome = trade.evaluation?.outcome || 'unknown';
+        const rMultiple = Number(trade.evaluation?.rMultiple);
         summary.byInst[instId] = (summary.byInst[instId] || 0) + 1;
         summary.bySide[side] = (summary.bySide[side] || 0) + 1;
         summary.byMode[mode] = (summary.byMode[mode] || 0) + 1;
         summary.outcomes[outcome] = (summary.outcomes[outcome] || 0) + 1;
         summary.totalNotional += Number.isFinite(notional) ? notional : 0;
         summary.totalRiskUsd += Number.isFinite(riskUsd) ? riskUsd : 0;
+
+        if (outcome === 'win' || outcome === 'loss') {
+            summary.totalClosed += 1;
+            closedTrades.push(trade);
+            if (Number.isFinite(rMultiple)) {
+                rSeries.push(rMultiple);
+                summary.totalR += rMultiple;
+                if (rMultiple > 0) {
+                    wins += 1;
+                    grossWin += rMultiple;
+                } else {
+                    losses += 1;
+                    grossLoss += Math.abs(rMultiple);
+                }
+            }
+        } else if (outcome === 'open') {
+            summary.totalOpen += 1;
+        }
+
+        const session = getSessionLabel(trade.timestamp);
+        summary.bySession[session] = summary.bySession[session] || {
+            total: 0,
+            wins: 0,
+            losses: 0,
+            winRate: 0
+        };
+        summary.bySession[session].total += 1;
+        if (outcome === 'win') {
+            summary.bySession[session].wins += 1;
+        }
+        if (outcome === 'loss') {
+            summary.bySession[session].losses += 1;
+        }
+        summary.bySession[session].winRate =
+            summary.bySession[session].wins +
+                summary.bySession[session].losses >
+            0
+                ? summary.bySession[session].wins /
+                  (summary.bySession[session].wins +
+                      summary.bySession[session].losses)
+                : 0;
     });
 
     if (summary.total > 0) {
         summary.avgNotional = summary.totalNotional / summary.total;
         summary.avgRiskUsd = summary.totalRiskUsd / summary.total;
     }
+    if (summary.totalClosed > 0) {
+        summary.avgR = summary.totalR / summary.totalClosed;
+        summary.sharpeR = computeSharpe(rSeries);
+        summary.profitFactor = grossLoss > 0 ? grossWin / grossLoss : 0;
+        summary.winRate = wins + losses > 0 ? wins / (wins + losses) : 0;
+    }
+
+    closedTrades.forEach((trade) => {
+        const instId = trade.instId || 'unknown';
+        summary.winRateByInst[instId] = summary.winRateByInst[instId] || {
+            wins: 0,
+            losses: 0,
+            winRate: 0
+        };
+        if (trade.evaluation?.outcome === 'win') {
+            summary.winRateByInst[instId].wins += 1;
+        }
+        if (trade.evaluation?.outcome === 'loss') {
+            summary.winRateByInst[instId].losses += 1;
+        }
+        const bucket = summary.winRateByInst[instId];
+        bucket.winRate =
+            bucket.wins + bucket.losses > 0
+                ? bucket.wins / (bucket.wins + bucket.losses)
+                : 0;
+    });
+
+    const equityCurve = [];
+    let cumulative = 0;
+    closedTrades
+        .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+        .forEach((trade) => {
+            const rMultiple = Number(trade.evaluation?.rMultiple);
+            if (!Number.isFinite(rMultiple)) {
+                return;
+            }
+            cumulative += rMultiple;
+            equityCurve.push({
+                timestamp: trade.timestamp,
+                rMultiple,
+                cumulativeR: cumulative
+            });
+        });
+    summary.equityCurve = equityCurve.slice(-100);
 
     const sample = evaluated.slice(-Math.min(10, evaluated.length));
     console.log(JSON.stringify({ summary, sample }, null, 2));
