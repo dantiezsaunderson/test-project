@@ -3,3 +3,5 @@ node_modules/
 bot-data.json
 npm-debug.log
 skills/polymarket-btc-15m-assistant/vendor/
+.forward-test.pid
+.forward-test.log

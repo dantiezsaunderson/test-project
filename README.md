@@ -152,6 +152,16 @@ To evaluate performance (TP/SL hits) over the last 7 days:
 node skills/blofin-perps/blofin.js report --days 7 --perf
 ```
 
+To start a forward-test scheduler (detached process):
+```bash
+node skills/forward-test/forward-test.js start
+```
+
+To stop it:
+```bash
+node skills/forward-test/forward-test.js stop
+```
+
 Performance notes:
 - Evaluation uses entry timeframe candles and assumes **stop-loss is hit first**
   if both stop and target touch within the same candle (conservative).
@@ -224,6 +234,7 @@ Example:
 - `skills/moltron-skill-creator` - Moltron skill creator/evolution loop
 - `skills/polymarket-btc-15m-assistant` - Polymarket BTC 15m console assistant
 - `skills/blofin-perps` - Blofin perps scanner + manual order CLI
+- `skills/forward-test` - start/stop forward-test scheduler
 
 Example:
 - `node /absolute/path/to/this-repo/skills/market-signals/market-signals.js --limit 10`
