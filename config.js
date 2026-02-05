@@ -134,6 +134,10 @@ const config = {
             entryTimeframe: process.env.BLOFIN_ENTRY_TIMEFRAME || '5m',
             highCandleLimit: parseNumber(process.env.BLOFIN_HIGH_CANDLE_LIMIT, 200),
             entryCandleLimit: parseNumber(process.env.BLOFIN_ENTRY_CANDLE_LIMIT, 200),
+            performanceCandleLimit: parseNumber(
+                process.env.BLOFIN_PERF_CANDLE_LIMIT,
+                2000
+            ),
             scanTop: parseNumber(process.env.BLOFIN_SCAN_TOP, 5),
             minVolume24h: parseNumber(process.env.BLOFIN_MIN_VOL_24H, 0),
             allowTrading: process.env.BLOFIN_ALLOW_TRADING === 'true',

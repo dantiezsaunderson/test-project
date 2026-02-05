@@ -18,6 +18,8 @@ It can also run a single auto-trade cycle when the auto-trade guards are enabled
   - `node {baseDir}/blofin.js auto --limit 5`
 - Review recent auto-trades:
   - `node {baseDir}/blofin.js report --days 7`
+- Evaluate performance (TP/SL hits):
+  - `node {baseDir}/blofin.js report --days 7 --perf`
 - View positions (private):
   - `node {baseDir}/blofin.js positions`
 - View balances (private):

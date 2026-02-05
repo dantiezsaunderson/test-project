@@ -15,7 +15,7 @@ Blofin Perps CLI
 Usage:
   blofin.js scan --limit 5
   blofin.js auto --limit 5
-  blofin.js report --days 7
+  blofin.js report --days 7 [--perf]
   blofin.js positions
   blofin.js balance
   blofin.js order --inst BTC-USDT --side buy --type market --size 1 --confirm
@@ -23,6 +23,7 @@ Usage:
 Options:
   --limit <number>
   --days <number>
+  --perf
   --inst <instId>
   --side buy|sell
   --type market|limit
@@ -40,6 +41,8 @@ const parseArgs = (args) => {
             const key = arg.replace(/^--/, '');
             if (key === 'confirm') {
                 options.flags.add('confirm');
+            } else if (key === 'perf' || key === 'performance') {
+                options.flags.add('perf');
             } else {
                 options[key] = args[i + 1];
                 i += 1;
@@ -49,6 +52,106 @@ const parseArgs = (args) => {
         }
     }
     return { options, rest };
+};
+
+const toNumber = (value, fallback = null) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const sortCandles = (candles) =>
+    [...candles].sort((a, b) => Number(a.ts) - Number(b.ts));
+
+const evaluateTrade = (trade, candles) => {
+    const entryPrice = toNumber(trade.price, null);
+    const stopLoss = toNumber(
+        trade.stopLoss ?? trade.signal?.stopLoss,
+        null
+    );
+    const takeProfit = toNumber(
+        trade.takeProfit ?? trade.signal?.takeProfit,
+        null
+    );
+    const tradeTime = new Date(trade.timestamp || '').getTime();
+    if (!Number.isFinite(tradeTime)) {
+        return { outcome: 'invalid', reason: 'missing_timestamp' };
+    }
+    if (!Number.isFinite(entryPrice)) {
+        return { outcome: 'invalid', reason: 'missing_entry_price' };
+    }
+    if (!Number.isFinite(stopLoss) || !Number.isFinite(takeProfit)) {
+        return { outcome: 'invalid', reason: 'missing_levels' };
+    }
+    if (!trade.side || !['buy', 'sell'].includes(trade.side)) {
+        return { outcome: 'invalid', reason: 'missing_side' };
+    }
+
+    const isBuy = trade.side === 'buy';
+    const risk = isBuy ? entryPrice - stopLoss : stopLoss - entryPrice;
+    if (!(risk > 0)) {
+        return { outcome: 'invalid', reason: 'invalid_stop_distance' };
+    }
+    if (isBuy && takeProfit <= entryPrice) {
+        return { outcome: 'invalid', reason: 'invalid_take_profit' };
+    }
+    if (!isBuy && takeProfit >= entryPrice) {
+        return { outcome: 'invalid', reason: 'invalid_take_profit' };
+    }
+
+    const timeline = candles.filter((candle) => candle.ts >= tradeTime);
+    if (!timeline.length) {
+        return { outcome: 'insufficient_data', reason: 'no_future_candles' };
+    }
+
+    for (const candle of timeline) {
+        const stopHit = isBuy
+            ? candle.low <= stopLoss
+            : candle.high >= stopLoss;
+        const tpHit = isBuy
+            ? candle.high >= takeProfit
+            : candle.low <= takeProfit;
+
+        if (stopHit && tpHit) {
+            return {
+                outcome: 'loss',
+                exitPrice: stopLoss,
+                exitTime: candle.ts,
+                exitReason: 'stop_and_target_same_candle',
+                rMultiple: -1
+            };
+        }
+        if (stopHit) {
+            return {
+                outcome: 'loss',
+                exitPrice: stopLoss,
+                exitTime: candle.ts,
+                exitReason: 'stop_hit',
+                rMultiple: -1
+            };
+        }
+        if (tpHit) {
+            const reward = isBuy ? takeProfit - entryPrice : entryPrice - takeProfit;
+            return {
+                outcome: 'win',
+                exitPrice: takeProfit,
+                exitTime: candle.ts,
+                exitReason: 'target_hit',
+                rMultiple: reward / risk
+            };
+        }
+    }
+
+    const last = timeline[timeline.length - 1];
+    const unrealized = isBuy
+        ? (last.close - entryPrice) / risk
+        : (entryPrice - last.close) / risk;
+    return {
+        outcome: 'open',
+        exitReason: 'still_open',
+        unrealizedR: unrealized,
+        lastPrice: last.close,
+        lastTime: last.ts
+    };
 };
 
 const formatSignal = (entry) => {
@@ -107,29 +210,81 @@ const reportAutoTrades = async (options) => {
         return Number.isFinite(ts) && ts >= sinceMs;
     });
 
+    if (options.flags.has('perf') && filtered.length) {
+        const grouped = filtered.reduce((acc, trade) => {
+            if (!trade.instId) {
+                return acc;
+            }
+            acc[trade.instId] = acc[trade.instId] || [];
+            acc[trade.instId].push(trade);
+            return acc;
+        }, {});
+
+        const updates = new Map();
+        for (const instId of Object.keys(grouped)) {
+            const candles = await blofinClient.fetchCandles({
+                instId,
+                bar: config.markets.blofin.entryTimeframe,
+                limit: config.markets.blofin.performanceCandleLimit
+            });
+            const sorted = sortCandles(candles);
+            grouped[instId].forEach((trade) => {
+                const evaluation = evaluateTrade(trade, sorted);
+                updates.set(trade.tradeId || trade.timestamp, {
+                    ...trade,
+                    evaluation: {
+                        ...evaluation,
+                        evaluatedAt: new Date().toISOString()
+                    }
+                });
+            });
+        }
+
+        if (updates.size) {
+            await dataStore.updateAutoTrades((allTrades) =>
+                allTrades.map((trade) => {
+                    const key = trade.tradeId || trade.timestamp;
+                    return updates.get(key) || trade;
+                })
+            );
+        }
+    }
+
+    const refreshed = await dataStore.getAutoTrades();
+    const evaluated = refreshed.filter((trade) => {
+        if (!trade || !trade.timestamp) {
+            return false;
+        }
+        const ts = new Date(trade.timestamp).getTime();
+        return Number.isFinite(ts) && ts >= sinceMs;
+    });
+
     const summary = {
         since: new Date(sinceMs).toISOString(),
-        total: filtered.length,
-        dryRun: filtered.filter((trade) => trade.status === 'dry-run').length,
-        submitted: filtered.filter((trade) => trade.status !== 'dry-run').length,
+        total: evaluated.length,
+        dryRun: evaluated.filter((trade) => trade.status === 'dry-run').length,
+        submitted: evaluated.filter((trade) => trade.status !== 'dry-run').length,
         totalNotional: 0,
         avgNotional: 0,
         totalRiskUsd: 0,
         avgRiskUsd: 0,
+        outcomes: {},
         byMode: {},
         byInst: {},
         bySide: {}
     };
 
-    filtered.forEach((trade) => {
+    evaluated.forEach((trade) => {
         const instId = trade.instId || 'unknown';
         const side = trade.side || 'unknown';
         const mode = trade.sizingMode || 'unknown';
         const notional = Number(trade.notional || 0);
         const riskUsd = Number(trade.riskUsdActual || 0);
+        const outcome = trade.evaluation?.outcome || 'unknown';
         summary.byInst[instId] = (summary.byInst[instId] || 0) + 1;
         summary.bySide[side] = (summary.bySide[side] || 0) + 1;
         summary.byMode[mode] = (summary.byMode[mode] || 0) + 1;
+        summary.outcomes[outcome] = (summary.outcomes[outcome] || 0) + 1;
         summary.totalNotional += Number.isFinite(notional) ? notional : 0;
         summary.totalRiskUsd += Number.isFinite(riskUsd) ? riskUsd : 0;
     });
@@ -139,7 +294,7 @@ const reportAutoTrades = async (options) => {
         summary.avgRiskUsd = summary.totalRiskUsd / summary.total;
     }
 
-    const sample = filtered.slice(-Math.min(10, filtered.length));
+    const sample = evaluated.slice(-Math.min(10, evaluated.length));
     console.log(JSON.stringify({ summary, sample }, null, 2));
 };
 

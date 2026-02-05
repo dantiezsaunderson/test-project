@@ -92,6 +92,15 @@ const addAutoTrade = async (trade) =>
         );
     });
 
+const updateAutoTrades = async (updater) =>
+    updateState((state) => {
+        const updated = updater(state.autoTrades || []);
+        state.autoTrades = trimArray(
+            Array.isArray(updated) ? updated : state.autoTrades,
+            config.storage.maxAutoTrades
+        );
+    });
+
 const setLastRun = async (runSummary) =>
     updateState((state) => {
         state.lastRun = runSummary;
@@ -148,6 +157,7 @@ module.exports = {
     addSnapshot,
     addSignals,
     addAutoTrade,
+    updateAutoTrades,
     setLastRun,
     getLatestSnapshot,
     getSignals,

@@ -364,6 +364,7 @@ const runBlofinAutoTrade = async ({ signals, snapshot, reason } = {}) => {
         }
 
         const stopLoss = toNumber(entry.signal?.stopLoss, null);
+        const takeProfit = toNumber(entry.signal?.takeProfit, null);
         let size = 0;
         let notional = 0;
         let sizingMode = 'notional';
@@ -408,13 +409,18 @@ const runBlofinAutoTrade = async ({ signals, snapshot, reason } = {}) => {
         }
 
         const side = entry.signal.status === 'BUY' ? 'buy' : 'sell';
+        const actionTime = new Date().toISOString();
+        const tradeId = `${actionTime}-${instId}-${side}`;
         const action = {
-            timestamp: new Date().toISOString(),
+            timestamp: actionTime,
+            tradeId,
             instId,
             side,
             size,
             price,
             notional,
+            stopLoss: Number.isFinite(stopLoss) ? stopLoss : undefined,
+            takeProfit: Number.isFinite(takeProfit) ? takeProfit : undefined,
             sizingMode,
             riskUsdTarget: riskUsdTarget || undefined,
             riskUsdActual: riskUsdActual || undefined,

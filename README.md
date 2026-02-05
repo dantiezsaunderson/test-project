@@ -112,6 +112,7 @@ Key variables (see `.env.example`):
 - `BLOFIN_AUTO_COOLDOWN_MINUTES` - cooldown between trades per instrument
 - `BLOFIN_AUTO_SESSION_WINDOWS` - optional UTC windows (e.g. `07:00-11:00,13:30-16:00`)
 - `BLOFIN_AUTO_ORDER_TYPE` - `market` only
+- `BLOFIN_PERF_CANDLE_LIMIT` - candles used for performance evaluation window
 
 To run a scan:
 ```bash
@@ -134,6 +135,15 @@ To review the last 7 days of auto-trades (useful for forward testing):
 ```bash
 node skills/blofin-perps/blofin.js report --days 7
 ```
+
+To evaluate performance (TP/SL hits) over the last 7 days:
+```bash
+node skills/blofin-perps/blofin.js report --days 7 --perf
+```
+
+Performance notes:
+- Evaluation uses entry timeframe candles and assumes **stop-loss is hit first**
+  if both stop and target touch within the same candle (conservative).
 
 To derive L2 API credentials, use the OpenClaw skill or run:
 ```bash
