@@ -190,6 +190,19 @@ const createOrder = async (options) => {
     });
 };
 
+const getBalanceAllowance = async (options) => {
+    const client = await getClobClient(options.clobHost, options.chainId, {
+        apiKey: options.apiKey,
+        secret: options.apiSecret,
+        passphrase: options.apiPassphrase
+    });
+
+    return client.getBalanceAllowance({
+        asset_type: options.assetType,
+        token_id: options.tokenId
+    });
+};
+
 const deriveApiCredentials = async (options) => {
     const { Wallet } = await import('ethers');
     const wallet = new Wallet(options.privateKey);
@@ -206,6 +219,7 @@ const deriveApiCredentials = async (options) => {
 module.exports = {
     discoverBestMarket,
     createOrder,
+    getBalanceAllowance,
     deriveApiCredentials,
     normalizeSide
 };

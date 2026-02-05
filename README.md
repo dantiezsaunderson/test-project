@@ -128,6 +128,7 @@ signals and (when explicitly allowed) place trades.
 
 Example:
 - `node /absolute/path/to/this-repo/skills/polymarket/polymarket.js signals --limit 5`
+- `node /absolute/path/to/this-repo/skills/polymarket/polymarket.js balance --asset collateral`
 - `node /absolute/path/to/this-repo/skills/polymarket/polymarket.js trade --confirm`
 
 ## Notes

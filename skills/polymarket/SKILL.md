@@ -25,6 +25,8 @@ It is **research-only by default** and will only trade when explicitly confirmed
   - `node {baseDir}/polymarket.js discover`
 - Recent signals:
   - `node {baseDir}/polymarket.js signals --limit 5`
+- Balance/allowance:
+  - `node {baseDir}/polymarket.js balance --asset collateral`
 - Derive L2 API credentials (requires PRIVATE KEY env vars):
   - `node {baseDir}/polymarket.js derive --write-env`
 - Place a trade (requires explicit confirmation):

@@ -14,6 +14,7 @@ Usage:
   polymarket.js status
   polymarket.js discover
   polymarket.js signals --limit 5
+  polymarket.js balance
   polymarket.js derive --write-env
   polymarket.js trade --confirm
 
@@ -24,6 +25,7 @@ Options:
   --candidates <number>
   --spread-top <number>
   --limit <number>
+  --asset collateral|conditional
   --price <number>
   --size <number>
   --token <id>
@@ -155,6 +157,47 @@ const deriveCredentials = async (options) => {
     }
 };
 
+const showBalance = async (options) => {
+    const apiKey = process.env.POLYMARKET_API_KEY;
+    const apiSecret = process.env.POLYMARKET_API_SECRET;
+    const apiPassphrase = process.env.POLYMARKET_API_PASSPHRASE;
+
+    if (!apiKey || !apiSecret || !apiPassphrase) {
+        throw new Error('Missing Polymarket API credentials.');
+    }
+
+    const asset = String(options.asset || 'collateral').toUpperCase();
+    const assetType = asset === 'CONDITIONAL' ? 'CONDITIONAL' : 'COLLATERAL';
+    const tokenId = options.token || process.env.TOKEN_ID;
+
+    if (assetType === 'CONDITIONAL' && !tokenId) {
+        throw new Error('CONDITIONAL balance requires --token or TOKEN_ID.');
+    }
+
+    const result = await polymarketClient.getBalanceAllowance({
+        clobHost: config.markets.polymarket.clobHost,
+        chainId: config.markets.polymarket.chainId,
+        apiKey,
+        apiSecret,
+        apiPassphrase,
+        assetType,
+        tokenId
+    });
+
+    console.log(
+        JSON.stringify(
+            {
+                assetType,
+                tokenId: tokenId || null,
+                balance: result.balance,
+                allowance: result.allowance
+            },
+            null,
+            2
+        )
+    );
+};
+
 const executeTrade = async (options) => {
     const allowTrading = config.markets.polymarket.allowTrading;
     const dryRun = config.markets.polymarket.dryRun;
@@ -239,6 +282,11 @@ const main = async () => {
 
     if (command === 'signals') {
         await showSignals(options);
+        return;
+    }
+
+    if (command === 'balance') {
+        await showBalance(options);
         return;
     }
 
