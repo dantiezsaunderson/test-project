@@ -60,6 +60,40 @@ Key options:
 - `CRYPTO_IDS`, `MEME_IDS`, `FOREX_SYMBOLS` - watchlist configuration
 - `POKEMON_TCG_API_KEY` - increase Pokemon TCG API rate limits
 
+## OpenClaw integration (real Clawd bot)
+This repo ships an OpenClaw skill that connects to the local bot API.
+
+1. Install OpenClaw (CLI):
+   ```bash
+   npm install -g openclaw@latest
+   openclaw onboard --install-daemon
+   ```
+2. Ensure the bot API is running:
+   ```bash
+   npm start
+   ```
+3. Make the skill available to OpenClaw (choose one):
+   - Use this repo as your OpenClaw workspace, or
+   - Add the skills directory to `skills.load.extraDirs` in `~/.openclaw/openclaw.json`:
+     ```json5
+     {
+       skills: {
+         load: {
+           extraDirs: ["/absolute/path/to/this-repo/skills"],
+         },
+       },
+     }
+     ```
+4. Ask OpenClaw to refresh skills or restart the gateway.
+
+Example commands OpenClaw can run (via exec tool):
+- `node /absolute/path/to/this-repo/skills/clawd-bot/clawd-bot.js status`
+- `node /absolute/path/to/this-repo/skills/clawd-bot/clawd-bot.js signals --limit 10`
+- `node /absolute/path/to/this-repo/skills/clawd-bot/clawd-bot.js run`
+
+If you set `BOT_API_KEY` on the bot server, also export `CLAWD_BOT_API_KEY`
+for OpenClaw before invoking the skill.
+
 ## Notes
 - This bot is for research and alerting only.
 - It does not place trades or provide financial advice.
