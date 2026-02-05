@@ -158,6 +158,14 @@ const config = {
                 process.env.BLOFIN_MAX_OPEN_POSITIONS,
                 1
             ),
+            maxOpenPositionsDry: parseNumber(
+                process.env.BLOFIN_MAX_OPEN_POSITIONS_DRY,
+                5
+            ),
+            autoDryMaxActions: parseNumber(
+                process.env.BLOFIN_AUTO_DRY_MAX_ACTIONS,
+                5
+            ),
             autoOrderType: (process.env.BLOFIN_AUTO_ORDER_TYPE || 'market').toLowerCase(),
             strategy: {
                 minCandles: parseNumber(process.env.BLOFIN_ICC_MIN_CANDLES, 120),

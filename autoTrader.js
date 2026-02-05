@@ -200,6 +200,9 @@ const runBlofinAutoTrade = async ({ signals, snapshot, reason } = {}) => {
     const now = new Date();
     const actions = [];
     const skipped = [];
+    const maxActions = settings.dryRun
+        ? Math.max(1, settings.autoDryMaxActions)
+        : 1;
 
     if (!settings.autoTrade) {
         return { status: 'disabled', actions };
@@ -232,9 +235,12 @@ const runBlofinAutoTrade = async ({ signals, snapshot, reason } = {}) => {
     const openPositions = positions.filter(
         (position) => Math.abs(getPositionSize(position)) > 0
     );
+    const maxOpenPositionsAllowed = settings.dryRun
+        ? settings.maxOpenPositionsDry
+        : settings.maxOpenPositions;
     if (
-        Number.isFinite(settings.maxOpenPositions) &&
-        openPositions.length >= settings.maxOpenPositions
+        Number.isFinite(maxOpenPositionsAllowed) &&
+        openPositions.length >= maxOpenPositionsAllowed
     ) {
         return { status: 'blocked', reason: 'max_open_positions', actions };
     }
@@ -257,6 +263,9 @@ const runBlofinAutoTrade = async ({ signals, snapshot, reason } = {}) => {
     }
 
     for (const entry of actionable) {
+        if (actions.length >= maxActions) {
+            break;
+        }
         const instId = entry.instId;
         if (!instId) {
             skipped.push('missing_inst_id');
