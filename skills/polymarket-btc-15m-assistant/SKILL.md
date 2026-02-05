@@ -19,6 +19,8 @@ It is a real-time console monitor (long-running). Use it in a dedicated terminal
   - `node {baseDir}/btc15m.js install`
 - Start the live console (long-running):
   - `node {baseDir}/btc15m.js start`
+- Capture a short snapshot (non-blocking):
+  - `node {baseDir}/btc15m.js snapshot --seconds 8`
 
 ## Optional environment variables
 

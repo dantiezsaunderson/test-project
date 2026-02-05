@@ -15,9 +15,11 @@ Usage:
   btc15m.js status
   btc15m.js install
   btc15m.js start
+  btc15m.js snapshot --seconds 8
 
 Notes:
   - "start" runs a long-lived console app (Ctrl+C to stop).
+  - "snapshot" runs briefly and prints the last screen.
   - Install will clone/update the upstream repo and run npm install.
 `.trim();
 
@@ -59,6 +61,59 @@ const start = () => {
     });
 };
 
+const stripAnsi = (value) => String(value).replace(/\x1b\[[0-9;]*m/g, '');
+
+const extractSnapshot = (output) => {
+    const lines = stripAnsi(output)
+        .split(/\r?\n/)
+        .map((line) => line.replace(/\s+$/g, ''));
+    if (!lines.length) {
+        return 'No output captured.';
+    }
+    const lastMarketIndex = [...lines].reverse().findIndex((line) =>
+        /Market:/.test(line)
+    );
+    const marketIndex =
+        lastMarketIndex === -1 ? -1 : lines.length - 1 - lastMarketIndex;
+    let start = marketIndex > -1 ? Math.max(0, marketIndex - 1) : Math.max(0, lines.length - 30);
+    let end = lines.length;
+    for (let i = marketIndex; i < lines.length; i += 1) {
+        if (lines[i] && lines[i].toLowerCase().includes('created by')) {
+            end = i + 1;
+            break;
+        }
+    }
+    const snapshot = lines.slice(start, end).filter((line) => line.trim() !== '');
+    return snapshot.length ? snapshot.join('\n') : 'No snapshot lines found.';
+};
+
+const snapshot = (seconds = 8) => {
+    if (!isInstalled()) {
+        console.log('Not installed yet. Run: node btc15m.js install');
+        return;
+    }
+    const durationMs = Math.max(2, Number(seconds) || 8) * 1000;
+    const child = spawn('node', ['src/index.js'], {
+        cwd: installDir,
+        stdio: ['ignore', 'pipe', 'pipe']
+    });
+    let output = '';
+    child.stdout.on('data', (chunk) => {
+        output += chunk.toString();
+    });
+    child.stderr.on('data', (chunk) => {
+        output += chunk.toString();
+    });
+    const timer = setTimeout(() => {
+        child.kill('SIGINT');
+    }, durationMs);
+    child.on('close', () => {
+        clearTimeout(timer);
+        console.log('--- Snapshot ---');
+        console.log(extractSnapshot(output));
+    });
+};
+
 const status = () => {
     if (!isInstalled()) {
         console.log('Status: not installed');
@@ -86,6 +141,13 @@ const main = () => {
     }
     if (command === 'status') {
         status();
+        return;
+    }
+    if (command === 'snapshot') {
+        const argIndex = process.argv.indexOf('--seconds');
+        const seconds =
+            argIndex > -1 ? Number(process.argv[argIndex + 1]) : undefined;
+        snapshot(seconds);
         return;
     }
 

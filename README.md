@@ -156,6 +156,7 @@ This skill wraps the upstream repo and installs it locally on demand:
 - `node /absolute/path/to/this-repo/skills/polymarket-btc-15m-assistant/btc15m.js status`
 - `node /absolute/path/to/this-repo/skills/polymarket-btc-15m-assistant/btc15m.js install`
 - `node /absolute/path/to/this-repo/skills/polymarket-btc-15m-assistant/btc15m.js start`
+- `node /absolute/path/to/this-repo/skills/polymarket-btc-15m-assistant/btc15m.js snapshot --seconds 8`
 
 ## Notes
 - This bot is for research and alerting only.
