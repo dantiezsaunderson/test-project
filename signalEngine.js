@@ -258,6 +258,8 @@ const generateBlofinSignals = (current, previous) => {
                 bias,
                 reasons: signal.reasons,
                 indicationLevel: signal.indicationLevel,
+                structureHigh: signal.structureHigh,
+                structureLow: signal.structureLow,
                 correctionExtreme: signal.correctionExtreme,
                 entryBreak: signal.entryBreak,
                 stopLoss: signal.stopLoss,

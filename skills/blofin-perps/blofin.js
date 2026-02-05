@@ -286,6 +286,16 @@ const formatSignal = (entry) => {
         levels.push(`SL ${entry.signal.stopLoss}`);
     }
     if (
+        Number.isFinite(entry.signal?.structureHigh) &&
+        Number.isFinite(entry.signal?.structureLow)
+    ) {
+        levels.push(
+            `range ${Number(entry.signal.structureLow).toFixed(2)}-${Number(
+                entry.signal.structureHigh
+            ).toFixed(2)}`
+        );
+    }
+    if (
         Array.isArray(entry.signal?.takeProfitLevels) &&
         entry.signal.takeProfitLevels.length
     ) {

@@ -333,12 +333,21 @@ const buildIccSignal = (highCandles, entryCandles, options) => {
         return null;
     }
 
+    const sortedHighCandles = [...highCandles].sort(
+        (a, b) => a.ts - b.ts
+    );
+    const sortedEntryCandles = [...entryCandles].sort(
+        (a, b) => a.ts - b.ts
+    );
+
     const structureLookback =
         options.structureLookback || options.swingLookback;
-    const highSlice = highCandles.slice(
-        Math.max(0, highCandles.length - structureLookback)
+    const highSlice = sortedHighCandles.slice(
+        Math.max(0, sortedHighCandles.length - structureLookback)
     );
-    const highOffset = highCandles.length - highSlice.length;
+    const structureHigh = Math.max(...highSlice.map((c) => c.high));
+    const structureLow = Math.min(...highSlice.map((c) => c.low));
+    const highOffset = sortedHighCandles.length - highSlice.length;
     const { highs, lows } = findSwings(highSlice, options.swingPivot);
     const swingHighs = highs.map((h) => ({
         index: h.index + highOffset,
@@ -363,7 +372,7 @@ const buildIccSignal = (highCandles, entryCandles, options) => {
         filteredLows,
         options.structureSwingCount
     );
-    const lastCandle = getLast(highCandles);
+    const lastCandle = getLast(sortedHighCandles);
     const reasons = [];
 
     if (trend === 'consolidation' || trend === 'unknown') {
@@ -371,6 +380,8 @@ const buildIccSignal = (highCandles, entryCandles, options) => {
             status: 'NO_TRADE',
             bias: 'neutral',
             reasons: ['No clear market structure'],
+            structureHigh,
+            structureLow,
             lastClose: lastCandle.close
         };
     }
@@ -380,6 +391,8 @@ const buildIccSignal = (highCandles, entryCandles, options) => {
             status: 'NO_TRADE',
             bias: 'neutral',
             reasons: ['Insufficient swing structure'],
+            structureHigh,
+            structureLow,
             lastClose: lastCandle.close
         };
     }
@@ -399,6 +412,8 @@ const buildIccSignal = (highCandles, entryCandles, options) => {
             status: 'WAIT',
             bias: trend === 'up' ? 'bullish' : 'bearish',
             reasons: ['Waiting for indication'],
+            structureHigh,
+            structureLow,
             lastClose: lastCandle.close,
             swingHigh: lastSwingHigh.price,
             swingLow: lastSwingLow.price
@@ -425,13 +440,15 @@ const buildIccSignal = (highCandles, entryCandles, options) => {
             status: 'WAIT',
             bias: indicationDirection,
             reasons: ['Indication without displacement'],
+            structureHigh,
+            structureLow,
             indicationLevel,
             displacementPct,
             lastClose: lastCandle.close
         };
     }
 
-    const rangeSlice = getRangeSlice(highCandles, indicationIndex);
+    const rangeSlice = getRangeSlice(sortedHighCandles, indicationIndex);
     const impulseHigh = Math.max(...rangeSlice.map((c) => c.high));
     const impulseLow = Math.min(...rangeSlice.map((c) => c.low));
 
@@ -459,6 +476,8 @@ const buildIccSignal = (highCandles, entryCandles, options) => {
             status: 'WAIT_CORRECTION',
             bias: indicationDirection,
             reasons: ['Indication detected, waiting for correction'],
+            structureHigh,
+            structureLow,
             indicationLevel,
             retrace,
             correctionTarget,
@@ -466,10 +485,10 @@ const buildIccSignal = (highCandles, entryCandles, options) => {
         };
     }
 
-    const entrySlice = entryCandles.slice(
-        Math.max(0, entryCandles.length - options.entryLookback)
+    const entrySlice = sortedEntryCandles.slice(
+        Math.max(0, sortedEntryCandles.length - options.entryLookback)
     );
-    const entryOffset = entryCandles.length - entrySlice.length;
+    const entryOffset = sortedEntryCandles.length - entrySlice.length;
     const { highs: entryHighsRaw, lows: entryLowsRaw } = findSwings(
         entrySlice,
         options.entryPivot
@@ -482,7 +501,7 @@ const buildIccSignal = (highCandles, entryCandles, options) => {
         index: l.index + entryOffset,
         price: l.price
     }));
-    const entryLast = getLast(entryCandles);
+    const entryLast = getLast(sortedEntryCandles);
 
     const lastEntryHigh =
         entryHighs.length > 0 ? entryHighs[entryHighs.length - 1].price : null;
@@ -494,8 +513,8 @@ const buildIccSignal = (highCandles, entryCandles, options) => {
     const continuationBearish =
         indicationBearish && lastEntryLow !== null && entryLast.close < lastEntryLow;
 
-    const sweepSlice = entryCandles.slice(
-        Math.max(0, entryCandles.length - (options.sweepLookback || options.entryLookback))
+    const sweepSlice = sortedEntryCandles.slice(
+        Math.max(0, sortedEntryCandles.length - (options.sweepLookback || options.entryLookback))
     );
     const liquiditySweep = findLiquiditySweep(
         sweepSlice,
@@ -513,6 +532,8 @@ const buildIccSignal = (highCandles, entryCandles, options) => {
             status: 'WAIT_CONTINUATION',
             bias: indicationDirection,
             reasons: ['Awaiting liquidity sweep'],
+            structureHigh,
+            structureLow,
             indicationLevel,
             correctionExtreme,
             retrace,
@@ -527,6 +548,8 @@ const buildIccSignal = (highCandles, entryCandles, options) => {
             status: 'WAIT_CONTINUATION',
             bias: indicationDirection,
             reasons: ['Correction complete, waiting for continuation'],
+            structureHigh,
+            structureLow,
             indicationLevel,
             correctionExtreme,
             retrace,
@@ -562,6 +585,8 @@ const buildIccSignal = (highCandles, entryCandles, options) => {
             status: 'WAIT_CONTINUATION',
             bias: indicationDirection,
             reasons: ['Correction outside liquidity zone'],
+            structureHigh,
+            structureLow,
             indicationLevel,
             correctionExtreme,
             correctionLiquidity: targetPack.correctionLiquidity,
@@ -575,6 +600,8 @@ const buildIccSignal = (highCandles, entryCandles, options) => {
         status,
         bias: indicationDirection,
         reasons,
+        structureHigh,
+        structureLow,
         indicationLevel,
         stopLoss,
         takeProfit,

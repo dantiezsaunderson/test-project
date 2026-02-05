@@ -199,7 +199,7 @@ const config = {
                 ),
                 structureLookback: parseNumber(
                     process.env.BLOFIN_ICC_STRUCTURE_LOOKBACK,
-                    60
+                    50
                 ),
                 structureSwingCount: parseNumber(
                     process.env.BLOFIN_ICC_STRUCTURE_SWING_COUNT,
