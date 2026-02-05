@@ -26,6 +26,9 @@ It is a real-time console monitor (long-running). Use it in a dedicated terminal
 
 You can set these before running:
 
+- `BTC15M_PRICE_SOURCE` (`blofin` default or `binance`)
+- `BLOFIN_BASE_URL` (default `https://openapi.blofin.com`)
+- `BLOFIN_INST_ID` (default `BTC-USDT`)
 - `POLYGON_RPC_URL` / `POLYGON_RPC_URLS`
 - `POLYGON_WSS_URLS`
 - `POLYMARKET_AUTO_SELECT_LATEST` (default true)

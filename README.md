@@ -158,6 +158,10 @@ This skill wraps the upstream repo and installs it locally on demand:
 - `node /absolute/path/to/this-repo/skills/polymarket-btc-15m-assistant/btc15m.js start`
 - `node /absolute/path/to/this-repo/skills/polymarket-btc-15m-assistant/btc15m.js snapshot --seconds 8`
 
+If Binance is blocked, set:
+- `BTC15M_PRICE_SOURCE=blofin`
+- `BLOFIN_INST_ID=BTC-USDT`
+
 ## Notes
 - This bot is for research and alerting only.
 - It does not place trades or provide financial advice.

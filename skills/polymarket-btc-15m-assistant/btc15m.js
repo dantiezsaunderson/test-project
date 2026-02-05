@@ -7,6 +7,9 @@ const path = require('node:path');
 const repoUrl = 'https://github.com/FrondEnt/PolymarketBTC15mAssistant.git';
 const vendorDir = path.resolve(__dirname, 'vendor');
 const installDir = path.resolve(vendorDir, 'PolymarketBTC15mAssistant');
+const overrideDir = path.resolve(__dirname, 'overrides');
+const binanceOverride = path.resolve(overrideDir, 'binance.js');
+const binanceTarget = path.resolve(installDir, 'src', 'data', 'binance.js');
 
 const helpText = `
 Polymarket BTC 15m Assistant (wrapper)
@@ -36,6 +39,16 @@ const ensureDir = (dir) => {
     fs.mkdirSync(dir, { recursive: true });
 };
 
+const applyOverrides = () => {
+    if (!fs.existsSync(binanceOverride)) {
+        return;
+    }
+    if (!fs.existsSync(binanceTarget)) {
+        return;
+    }
+    fs.copyFileSync(binanceOverride, binanceTarget);
+};
+
 const install = () => {
     ensureDir(vendorDir);
     if (!isInstalled()) {
@@ -44,6 +57,7 @@ const install = () => {
         run('git', ['-C', installDir, 'pull', '--ff-only']);
     }
     run('npm', ['install'], { cwd: installDir });
+    applyOverrides();
     console.log('✅ Polymarket BTC 15m Assistant installed.');
 };
 
@@ -52,6 +66,7 @@ const start = () => {
         console.log('Not installed yet. Run: node btc15m.js install');
         return;
     }
+    applyOverrides();
     const child = spawn('npm', ['start'], {
         cwd: installDir,
         stdio: 'inherit'
@@ -92,6 +107,7 @@ const snapshot = (seconds = 8) => {
         console.log('Not installed yet. Run: node btc15m.js install');
         return;
     }
+    applyOverrides();
     const durationMs = Math.max(2, Number(seconds) || 8) * 1000;
     const child = spawn('node', ['src/index.js'], {
         cwd: installDir,
