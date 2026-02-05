@@ -226,6 +226,65 @@ h3 {
     border: 1px dashed var(--border);
 }
 
+.status-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.status-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 16px;
+    margin-top: 16px;
+}
+
+.label {
+    display: block;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    margin-bottom: 6px;
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.status-badge.online {
+    background-color: #10b981;
+    color: #ffffff;
+}
+
+.status-badge.offline {
+    background-color: #e11d48;
+    color: #ffffff;
+}
+
+.signal-panel {
+    margin-top: 18px;
+}
+
+.signal-panel ul {
+    margin-top: 12px;
+}
+
+.signal-panel code,
+code {
+    font-family: "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono",
+        "Courier New", monospace;
+    background-color: #eef2ff;
+    padding: 2px 6px;
+    border-radius: 6px;
+}
+
 .small {
     font-size: 0.9rem;
 }

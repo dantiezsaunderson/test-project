@@ -14,8 +14,53 @@ be used for market data, macro data, collectibles, and sentiment.
 ## Project Structure
 - index.html - Main HTML layout and content
 - styles.css - Styling for the landing page
-- script.js - Interactive market playbook and copy-to-clipboard
+- script.js - Interactive market playbook, copy-to-clipboard, live status
+- server.js - Express API for live bot status and alerts
+- bot.js - Bot runner that fetches data and generates signals
+- dataStore.js - Local JSON storage for snapshots and signals
+- fetchers.js - Public API data connectors
+- signalEngine.js - Rule-based signal generator
+- notifier.js - Console and webhook alert delivery
+- config.js - Environment-driven settings
+
+## Setup
+1. Install dependencies:
+   ```bash
+   npm install
+   ```
+2. Copy the sample environment file:
+   ```bash
+   cp .env.example .env
+   ```
+3. Start the bot server:
+   ```bash
+   npm start
+   ```
+
+The landing page will be available at `http://localhost:3000` and will show
+live bot status once the server is running.
+
+## Run once (manual refresh)
+```bash
+npm run run:once
+```
+
+## API Endpoints
+- `GET /api/status` - current bot status and last run summary
+- `GET /api/signals?limit=5` - most recent signals
+- `GET /api/snapshots/:market` - latest snapshot for a market
+- `POST /api/run` - manual run (optional API key)
+
+## Configuration
+Update `.env` to tailor watchlists, thresholds, and alerts.
+
+Key options:
+- `INTERVAL_MINUTES` - how often the bot runs
+- `WEBHOOK_URL` - send alerts to Slack, Discord, or custom webhooks
+- `CRYPTO_IDS`, `MEME_IDS`, `FOREX_SYMBOLS` - watchlist configuration
+- `POKEMON_TCG_API_KEY` - increase Pokemon TCG API rate limits
 
 ## Notes
-- The experience is educational and research-focused.
-- The content is not financial advice. Always manage risk.
+- This bot is for research and alerting only.
+- It does not place trades or provide financial advice.
+- Always manage risk and keep humans in the loop.

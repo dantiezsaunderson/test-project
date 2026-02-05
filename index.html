@@ -145,6 +145,35 @@
                 </p>
             </section>
 
+            <section class="card" id="botStatusCard">
+                <div class="status-header">
+                    <h2>Live bot status</h2>
+                    <button class="btn ghost" id="refreshStatus" type="button">Refresh</button>
+                </div>
+                <div class="status-grid">
+                    <div>
+                        <span class="label">Status</span>
+                        <span class="status-badge offline" id="statusBadge">Offline</span>
+                    </div>
+                    <div>
+                        <span class="label">Last run</span>
+                        <span id="lastRun">--</span>
+                    </div>
+                    <div>
+                        <span class="label">Signals stored</span>
+                        <span id="signalCount">--</span>
+                    </div>
+                </div>
+                <div class="signal-panel">
+                    <h3>Recent signals</h3>
+                    <ul id="signalList" class="edge-list"></ul>
+                    <p id="signalEmpty" class="muted">No signals yet. Run the bot to generate alerts.</p>
+                </div>
+                <p class="muted small">
+                    Start the local server with <code>npm start</code> to enable live status and alerts.
+                </p>
+            </section>
+
             <section class="grid two">
                 <div class="card">
                     <h2>Guardrails first</h2>

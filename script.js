@@ -133,4 +133,81 @@ document.addEventListener('DOMContentLoaded', () => {
     if (copyButton) {
         copyButton.addEventListener('click', copyPlan);
     }
+
+    const statusBadge = document.getElementById('statusBadge');
+    const lastRun = document.getElementById('lastRun');
+    const signalCount = document.getElementById('signalCount');
+    const signalList = document.getElementById('signalList');
+    const signalEmpty = document.getElementById('signalEmpty');
+    const refreshStatusButton = document.getElementById('refreshStatus');
+
+    const setStatusBadge = (online) => {
+        if (!statusBadge) {
+            return;
+        }
+        statusBadge.textContent = online ? 'Online' : 'Offline';
+        statusBadge.classList.toggle('online', online);
+        statusBadge.classList.toggle('offline', !online);
+    };
+
+    const renderSignals = (signals) => {
+        if (!signalList) {
+            return;
+        }
+        signalList.innerHTML = '';
+        const hasSignals = Array.isArray(signals) && signals.length > 0;
+        if (signalEmpty) {
+            signalEmpty.style.display = hasSignals ? 'none' : 'block';
+        }
+        if (!hasSignals) {
+            return;
+        }
+        signals.forEach((signal) => {
+            const item = document.createElement('li');
+            item.textContent = `[${signal.market}] ${signal.message}`;
+            signalList.appendChild(item);
+        });
+    };
+
+    const refreshStatus = async () => {
+        if (!statusBadge || !lastRun || !signalCount) {
+            return;
+        }
+        try {
+            const response = await fetch('/api/status', { cache: 'no-store' });
+            if (!response.ok) {
+                throw new Error('Status unavailable');
+            }
+            const status = await response.json();
+            setStatusBadge(true);
+            lastRun.textContent = status.lastRun
+                ? new Date(status.lastRun.at).toLocaleString()
+                : 'Not run yet';
+            signalCount.textContent =
+                typeof status.signalCount === 'number'
+                    ? status.signalCount
+                    : '--';
+
+            const signalsResponse = await fetch('/api/signals?limit=5', {
+                cache: 'no-store'
+            });
+            if (!signalsResponse.ok) {
+                throw new Error('Signals unavailable');
+            }
+            const signalPayload = await signalsResponse.json();
+            renderSignals(signalPayload.signals || []);
+        } catch (error) {
+            setStatusBadge(false);
+            lastRun.textContent = 'Bot API offline';
+            signalCount.textContent = '--';
+            renderSignals([]);
+        }
+    };
+
+    if (refreshStatusButton) {
+        refreshStatusButton.addEventListener('click', refreshStatus);
+    }
+
+    refreshStatus();
+    setInterval(refreshStatus, 60000);
 });
