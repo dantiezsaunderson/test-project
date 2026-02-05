@@ -223,11 +223,22 @@ const config = {
                 ),
                 requireLiquidityZone:
                     process.env.BLOFIN_ICC_REQUIRE_LIQUIDITY_ZONE === 'true',
+                requireLiquiditySweep:
+                    process.env.BLOFIN_ICC_REQUIRE_SWEEP === 'true',
+                sweepLookback: parseNumber(
+                    process.env.BLOFIN_ICC_SWEEP_LOOKBACK,
+                    40
+                ),
+                sweepMinPct: parseNumber(
+                    process.env.BLOFIN_ICC_SWEEP_MIN_PCT,
+                    0
+                ),
                 targetR1: parseNumber(process.env.BLOFIN_ICC_TARGET_R1, 1),
                 targetR2: parseNumber(process.env.BLOFIN_ICC_TARGET_R2, 2),
+                targetR3: parseNumber(process.env.BLOFIN_ICC_TARGET_R3, 3),
                 takeProfitSplits: parseNumberList(
                     process.env.BLOFIN_ICC_TP_SPLITS,
-                    [0.5, 0.5]
+                    [0.4, 0.3, 0.3]
                 )
             }
         }

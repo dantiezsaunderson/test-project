@@ -117,6 +117,59 @@ const findNearestLiquidity = (pools, price, tolerancePct) => {
     return nearest;
 };
 
+const findLiquiditySweep = (
+    candles,
+    direction,
+    lastEntryHigh,
+    lastEntryLow,
+    minPct
+) => {
+    if (!Array.isArray(candles) || candles.length === 0) {
+        return null;
+    }
+    if (direction === 'bullish' && !Number.isFinite(lastEntryLow)) {
+        return null;
+    }
+    if (direction === 'bearish' && !Number.isFinite(lastEntryHigh)) {
+        return null;
+    }
+    const level = direction === 'bullish' ? lastEntryLow : lastEntryHigh;
+    const threshold =
+        Number.isFinite(minPct) && minPct > 0 ? minPct : 0;
+
+    for (let i = candles.length - 1; i >= 0; i -= 1) {
+        const candle = candles[i];
+        if (direction === 'bullish') {
+            const swept =
+                candle.low <= level * (1 - threshold) &&
+                candle.close > level;
+            if (swept) {
+                return {
+                    type: 'sweep_low',
+                    level,
+                    wick: candle.low,
+                    close: candle.close,
+                    ts: candle.ts
+                };
+            }
+        } else {
+            const swept =
+                candle.high >= level * (1 + threshold) &&
+                candle.close < level;
+            if (swept) {
+                return {
+                    type: 'sweep_high',
+                    level,
+                    wick: candle.high,
+                    close: candle.close,
+                    ts: candle.ts
+                };
+            }
+        }
+    }
+    return null;
+};
+
 const buildTargets = ({
     direction,
     indicationLevel,
@@ -157,35 +210,12 @@ const buildTargets = ({
 
     const targets = [];
     const metadata = [];
-    if (candidates.length) {
-        targets.push(candidates[0]);
-        metadata.push({
-            level: candidates[0],
-            source: poolLevels.length ? 'liquidity_pool' : 'swing'
-        });
-    }
-    if (!targets.length && riskDistance > 0) {
-        const level =
-            indicationLevel + dir * riskDistance * (options.targetR1 || 1);
-        targets.push(level);
-        metadata.push({ level, source: 'extension_r1' });
-    }
-    if (candidates.length > 1) {
-        targets.push(candidates[1]);
-        metadata.push({
-            level: candidates[1],
-            source: poolLevels.length ? 'liquidity_pool' : 'swing'
-        });
-    } else if (riskDistance > 0) {
-        const level =
-            indicationLevel + dir * riskDistance * (options.targetR2 || 2);
-        targets.push(level);
-        metadata.push({ level, source: 'extension_r2' });
-    }
-
-    const uniqueTargets = [];
-    const uniqueMeta = [];
-    targets.forEach((level, index) => {
+    const extensionRatios = [
+        options.targetR1 || 1,
+        options.targetR2 || 2,
+        options.targetR3 || 3
+    ];
+    const addTarget = (level, source) => {
         if (!Number.isFinite(level)) {
             return;
         }
@@ -201,16 +231,29 @@ const buildTargets = ({
         ) {
             return;
         }
-        if (uniqueTargets.some((existing) => Math.abs(existing - level) < 1e-8)) {
+        if (targets.some((existing) => Math.abs(existing - level) < 1e-8)) {
             return;
         }
-        uniqueTargets.push(level);
-        uniqueMeta.push(metadata[index]);
-    });
+        targets.push(level);
+        metadata.push({ level, source });
+    };
+
+    for (let i = 0; i < Math.min(candidates.length, 3); i += 1) {
+        addTarget(candidates[i], poolLevels.length ? 'liquidity_pool' : 'swing');
+    }
+    if (riskDistance > 0) {
+        extensionRatios.forEach((ratio, index) => {
+            if (targets.length >= 3) {
+                return;
+            }
+            const level = indicationLevel + dir * riskDistance * ratio;
+            addTarget(level, `extension_r${index + 1}`);
+        });
+    }
 
     const takeProfitSplits = normalizeSplits(
         options.takeProfitSplits,
-        uniqueTargets.length
+        targets.length
     );
 
     const correctionPools =
@@ -222,10 +265,10 @@ const buildTargets = ({
     );
 
     return {
-        takeProfitLevels: uniqueTargets,
+        takeProfitLevels: targets,
         takeProfitSplits,
         liquidityPools,
-        liquidityTargets: uniqueMeta,
+        liquidityTargets: metadata,
         correctionLiquidity
     };
 };
@@ -377,6 +420,34 @@ const buildIccSignal = (highCandles, entryCandles, options) => {
     const continuationBearish =
         indicationBearish && lastEntryLow !== null && entryLast.close < lastEntryLow;
 
+    const sweepSlice = entryCandles.slice(
+        Math.max(0, entryCandles.length - (options.sweepLookback || options.entryLookback))
+    );
+    const liquiditySweep = findLiquiditySweep(
+        sweepSlice,
+        indicationDirection,
+        lastEntryHigh,
+        lastEntryLow,
+        options.sweepMinPct
+    );
+
+    if (
+        options.requireLiquiditySweep &&
+        !liquiditySweep
+    ) {
+        return {
+            status: 'WAIT_CONTINUATION',
+            bias: indicationDirection,
+            reasons: ['Awaiting liquidity sweep'],
+            indicationLevel,
+            correctionExtreme,
+            retrace,
+            entryBreak: indicationBullish ? lastEntryHigh : lastEntryLow,
+            lastClose: entryLast.close,
+            liquiditySweep: null
+        };
+    }
+
     if (!(continuationBullish || continuationBearish)) {
         return {
             status: 'WAIT_CONTINUATION',
@@ -386,7 +457,8 @@ const buildIccSignal = (highCandles, entryCandles, options) => {
             correctionExtreme,
             retrace,
             entryBreak: indicationBullish ? lastEntryHigh : lastEntryLow,
-            lastClose: entryLast.close
+            lastClose: entryLast.close,
+            liquiditySweep
         };
     }
 
@@ -420,7 +492,8 @@ const buildIccSignal = (highCandles, entryCandles, options) => {
             correctionExtreme,
             correctionLiquidity: targetPack.correctionLiquidity,
             entryBreak: continuationBullish ? lastEntryHigh : lastEntryLow,
-            lastClose: entryLast.close
+            lastClose: entryLast.close,
+            liquiditySweep
         };
     }
 
@@ -436,6 +509,7 @@ const buildIccSignal = (highCandles, entryCandles, options) => {
         liquidityPools: targetPack.liquidityPools,
         liquidityTargets: targetPack.liquidityTargets,
         correctionLiquidity: targetPack.correctionLiquidity,
+        liquiditySweep,
         entryBreak: continuationBullish ? lastEntryHigh : lastEntryLow,
         lastClose: entryLast.close
     };

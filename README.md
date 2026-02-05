@@ -118,8 +118,12 @@ Key variables (see `.env.example`):
 - `BLOFIN_ICC_LIQUIDITY_TOL_PCT` - cluster tolerance for liquidity pools (0 disables)
 - `BLOFIN_ICC_LIQUIDITY_MIN_TOUCHES` - touches required to form a pool
 - `BLOFIN_ICC_REQUIRE_LIQUIDITY_ZONE` - require correction into liquidity pool
+- `BLOFIN_ICC_REQUIRE_SWEEP` - require a liquidity sweep before continuation
+- `BLOFIN_ICC_SWEEP_LOOKBACK` - candles to scan for sweeps (entry timeframe)
+- `BLOFIN_ICC_SWEEP_MIN_PCT` - minimum wick distance for a sweep
 - `BLOFIN_ICC_TARGET_R1` / `BLOFIN_ICC_TARGET_R2` - extension targets when no pool
-- `BLOFIN_ICC_TP_SPLITS` - partials (e.g. `0.5,0.5`)
+- `BLOFIN_ICC_TARGET_R3` - third extension target
+- `BLOFIN_ICC_TP_SPLITS` - partials (e.g. `0.4,0.3,0.3`)
 
 To run a scan:
 ```bash

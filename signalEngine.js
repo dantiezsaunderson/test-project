@@ -266,6 +266,7 @@ const generateBlofinSignals = (current, previous) => {
                 takeProfitSplits: signal.takeProfitSplits,
                 liquidityTargets: signal.liquidityTargets,
                 correctionLiquidity: signal.correctionLiquidity,
+                liquiditySweep: signal.liquiditySweep,
                 lastPrice: entry.last,
                 volume24h: entry.volume24h,
                 timeframes: entry.timeframes
