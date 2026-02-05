@@ -1,0 +1,174 @@
+#!/usr/bin/env node
+
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
+
+const config = require('../../config');
+const blofinClient = require('../../blofinClient');
+const blofinScanner = require('../../blofinScanner');
+
+const helpText = `
+Blofin Perps CLI
+
+Usage:
+  blofin.js scan --limit 5
+  blofin.js positions
+  blofin.js balance
+  blofin.js order --inst BTC-USDT --side buy --type market --size 1 --confirm
+
+Options:
+  --limit <number>
+  --inst <instId>
+  --side buy|sell
+  --type market|limit
+  --size <number>
+  --price <number>
+  --confirm
+`.trim();
+
+const parseArgs = (args) => {
+    const options = { flags: new Set() };
+    const rest = [];
+    for (let i = 0; i < args.length; i += 1) {
+        const arg = args[i];
+        if (arg.startsWith('--')) {
+            const key = arg.replace(/^--/, '');
+            if (key === 'confirm') {
+                options.flags.add('confirm');
+            } else {
+                options[key] = args[i + 1];
+                i += 1;
+            }
+        } else {
+            rest.push(arg);
+        }
+    }
+    return { options, rest };
+};
+
+const formatSignal = (entry) => {
+    const setup = entry.signal?.setup || 'wait';
+    const score = entry.signal?.score ?? 'n/a';
+    const reason = Array.isArray(entry.signal?.reasons)
+        ? entry.signal.reasons.join('; ')
+        : '';
+    return `${entry.instId} | ${setup} | score ${score} | ${reason}`;
+};
+
+const scanSignals = async (options) => {
+    const scan = await blofinScanner.fetchSignals();
+    const limit = Number(options.limit || 5);
+    const list = scan.signals.slice(0, limit);
+    if (!list.length) {
+        console.log('No signals found.');
+        return;
+    }
+    list.forEach((entry) => {
+        console.log(formatSignal(entry));
+    });
+};
+
+const showPositions = async () => {
+    const positions = await blofinClient.fetchPositions();
+    console.log(JSON.stringify(positions, null, 2));
+};
+
+const showBalance = async () => {
+    const balance = await blofinClient.fetchAccountBalance();
+    console.log(JSON.stringify(balance, null, 2));
+};
+
+const placeOrder = async (options) => {
+    if (!config.blofin.allowTrading) {
+        throw new Error('Trading disabled. Set BLOFIN_ALLOW_TRADING=true.');
+    }
+    if (config.blofin.dryRun) {
+        throw new Error('BLOFIN_DRY_RUN=true. Disable to place orders.');
+    }
+    if (!options.flags.has('confirm')) {
+        throw new Error('Order requires --confirm.');
+    }
+
+    const instId = options.inst;
+    const side = options.side;
+    const orderType = options.type || 'market';
+    const size = Number(options.size);
+    const price = options.price ? Number(options.price) : undefined;
+
+    if (!instId) {
+        throw new Error('Missing --inst.');
+    }
+    if (!['buy', 'sell'].includes(side)) {
+        throw new Error('Side must be buy or sell.');
+    }
+    if (!['market', 'limit'].includes(orderType)) {
+        throw new Error('Type must be market or limit.');
+    }
+    if (!Number.isFinite(size) || size <= 0) {
+        throw new Error('Size must be a positive number.');
+    }
+    if (orderType === 'limit' && (!Number.isFinite(price) || price <= 0)) {
+        throw new Error('Limit orders require --price.');
+    }
+    if (size > config.blofin.maxOrderUsdt) {
+        throw new Error(`Size exceeds max order size (${config.blofin.maxOrderUsdt}).`);
+    }
+
+    if (config.blofin.leverage) {
+        await blofinClient.setLeverage({
+            instId,
+            leverage: config.blofin.leverage,
+            marginMode: config.blofin.marginMode
+        });
+    }
+
+    const result = await blofinClient.placeOrder({
+        instId,
+        side,
+        orderType,
+        size,
+        price,
+        marginMode: config.blofin.marginMode,
+        positionSide:
+            config.blofin.positionMode === 'long_short_mode'
+                ? side === 'buy'
+                    ? 'long'
+                    : 'short'
+                : undefined
+    });
+    console.log(JSON.stringify(result, null, 2));
+};
+
+const main = async () => {
+    const { options, rest } = parseArgs(process.argv.slice(2));
+    const command = rest[0];
+
+    if (!command || command === '--help' || command === 'help') {
+        console.log(helpText);
+        return;
+    }
+
+    if (command === 'scan') {
+        await scanSignals(options);
+        return;
+    }
+    if (command === 'positions') {
+        await showPositions();
+        return;
+    }
+    if (command === 'balance') {
+        await showBalance();
+        return;
+    }
+    if (command === 'order') {
+        await placeOrder(options);
+        return;
+    }
+
+    console.log(helpText);
+};
+
+main().catch((error) => {
+    console.error('Blofin CLI error:', error.message);
+    process.exitCode = 1;
+});

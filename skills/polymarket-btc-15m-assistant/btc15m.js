@@ -10,6 +10,8 @@ const installDir = path.resolve(vendorDir, 'PolymarketBTC15mAssistant');
 const overrideDir = path.resolve(__dirname, 'overrides');
 const binanceOverride = path.resolve(overrideDir, 'binance.js');
 const binanceTarget = path.resolve(installDir, 'src', 'data', 'binance.js');
+const binanceWsOverride = path.resolve(overrideDir, 'binanceWs.js');
+const binanceWsTarget = path.resolve(installDir, 'src', 'data', 'binanceWs.js');
 
 const helpText = `
 Polymarket BTC 15m Assistant (wrapper)
@@ -47,6 +49,9 @@ const applyOverrides = () => {
         return;
     }
     fs.copyFileSync(binanceOverride, binanceTarget);
+    if (fs.existsSync(binanceWsOverride) && fs.existsSync(binanceWsTarget)) {
+        fs.copyFileSync(binanceWsOverride, binanceWsTarget);
+    }
 };
 
 const install = () => {
