@@ -55,18 +55,35 @@ const fetchMeme = async () => {
 
 const fetchForex = async () => {
     const { base, symbols } = config.markets.forex;
-    const { data } = await http.get('https://api.exchangerate.host/latest', {
-        params: {
-            base,
-            symbols: symbols.join(',')
-        }
-    });
+    try {
+        const { data } = await http.get(`https://open.er-api.com/v6/latest/${base}`);
+        const rates = data && data.rates ? data.rates : {};
+        const filtered = symbols.reduce((acc, symbol) => {
+            if (Number.isFinite(rates[symbol])) {
+                acc[symbol] = rates[symbol];
+            }
+            return acc;
+        }, {});
 
-    return {
-        source: 'exchangerate.host',
-        base,
-        rates: data && data.rates ? data.rates : {}
-    };
+        return {
+            source: 'open.er-api.com',
+            base,
+            rates: filtered
+        };
+    } catch (error) {
+        const { data } = await http.get('https://api.exchangerate.host/latest', {
+            params: {
+                base,
+                symbols: symbols.join(',')
+            }
+        });
+
+        return {
+            source: 'exchangerate.host',
+            base,
+            rates: data && data.rates ? data.rates : {}
+        };
+    }
 };
 
 const fetchCollectibles = async () => {
