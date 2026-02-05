@@ -105,6 +105,7 @@ Key variables (see `.env.example`):
 - `BLOFIN_RISK_USDT` - per-trade notional cap (safe default: 2)
 - `BLOFIN_RISK_PCT` - percent-of-available USDT per trade (e.g. 0.03 = 3%)
   - When `BLOFIN_RISK_PCT` is set and a USDT balance is available, it overrides `BLOFIN_RISK_USDT`.
+  - Uses ICC stop-loss distance for sizing; signals without a stop-loss are skipped.
 - `BLOFIN_MAX_OPEN_POSITIONS` - hard cap on open positions (safe default: 1)
 - `BLOFIN_MAX_OPEN_POSITIONS_DRY` - higher cap for dry-run forward testing
 - `BLOFIN_AUTO_DRY_MAX_ACTIONS` - max dry-run trades per cycle (0 = unlimited)

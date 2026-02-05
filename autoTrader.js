@@ -66,6 +66,48 @@ const floorToStep = (value, step) => {
     return Number(floored.toFixed(precision));
 };
 
+const computeRiskBasedSize = ({
+    riskUsd,
+    price,
+    stopLoss,
+    contractValue,
+    minSize,
+    lotSize,
+    maxNotional
+}) => {
+    const distance = Math.abs(price - stopLoss);
+    if (!(riskUsd > 0) || !(distance > 0) || !(contractValue > 0)) {
+        return { size: 0, reason: 'invalid_risk_distance' };
+    }
+    let sizeRaw = riskUsd / (distance * contractValue);
+    let size = floorToStep(sizeRaw, lotSize);
+    if (!(size > 0)) {
+        return { size: 0, reason: 'size_too_small' };
+    }
+    if (Number.isFinite(minSize) && size < minSize) {
+        return { size: 0, reason: 'below_min_size' };
+    }
+
+    let notional = size * price * contractValue;
+    if (Number.isFinite(maxNotional) && maxNotional > 0 && notional > maxNotional) {
+        const cappedSize = floorToStep(
+            maxNotional / (price * contractValue),
+            lotSize
+        );
+        if (!(cappedSize > 0)) {
+            return { size: 0, reason: 'size_too_small' };
+        }
+        if (Number.isFinite(minSize) && cappedSize < minSize) {
+            return { size: 0, reason: 'below_min_size' };
+        }
+        size = cappedSize;
+        notional = size * price * contractValue;
+    }
+
+    const riskUsdActual = size * distance * contractValue;
+    return { size, notional, riskUsdActual };
+};
+
 const parseWindow = (entry) => {
     if (!entry || typeof entry !== 'string') {
         return null;
@@ -251,21 +293,24 @@ const runBlofinAutoTrade = async ({ signals, snapshot, reason } = {}) => {
 
     const tickerMap = buildTickerMap(tickers);
     const availableUsdt = extractAvailableUsdt(balance);
-    const riskPct = settings.riskPerTradePct;
-    let baseNotional = settings.riskPerTradeUsdt;
-    if (Number.isFinite(riskPct) && riskPct > 0) {
-        if (Number.isFinite(availableUsdt)) {
-            baseNotional = availableUsdt * riskPct;
-        }
-    }
-    let notional = Number.isFinite(settings.maxOrderUsdt)
-        ? Math.min(baseNotional, settings.maxOrderUsdt)
+    const maxNotional = Number.isFinite(settings.maxOrderUsdt)
+        ? settings.maxOrderUsdt
+        : null;
+    const hasRiskPct =
+        Number.isFinite(settings.riskPerTradePct) &&
+        settings.riskPerTradePct > 0;
+    const riskUsdTarget =
+        hasRiskPct && Number.isFinite(availableUsdt)
+            ? availableUsdt * settings.riskPerTradePct
+            : null;
+    const baseNotional = Number.isFinite(maxNotional)
+        ? Math.min(settings.riskPerTradeUsdt, maxNotional)
+        : settings.riskPerTradeUsdt;
+    const fallbackNotional = Number.isFinite(availableUsdt)
+        ? Math.min(baseNotional, availableUsdt)
         : baseNotional;
-    if (Number.isFinite(availableUsdt)) {
-        notional = Math.min(notional, availableUsdt);
-    }
 
-    if (!(notional > 0)) {
+    if (!(fallbackNotional > 0) && !riskUsdTarget) {
         return { status: 'blocked', reason: 'no_notional', actions };
     }
     if (settings.autoOrderType !== 'market') {
@@ -318,16 +363,48 @@ const runBlofinAutoTrade = async ({ signals, snapshot, reason } = {}) => {
             continue;
         }
 
-        const size = computeOrderSize({
-            notional,
-            price,
-            contractValue: instrument.contractValue,
-            minSize: instrument.minSize,
-            lotSize: instrument.lotSize
-        });
-        if (!(size > 0)) {
-            skipped.push(`${instId}:size_too_small`);
+        const stopLoss = toNumber(entry.signal?.stopLoss, null);
+        let size = 0;
+        let notional = 0;
+        let sizingMode = 'notional';
+        let riskUsdActual = null;
+        if (riskUsdTarget && Number.isFinite(stopLoss)) {
+            const riskSizing = computeRiskBasedSize({
+                riskUsd: riskUsdTarget,
+                price,
+                stopLoss,
+                contractValue: instrument.contractValue,
+                minSize: instrument.minSize,
+                lotSize: instrument.lotSize,
+                maxNotional
+            });
+            if (riskSizing.size > 0) {
+                size = riskSizing.size;
+                notional = riskSizing.notional;
+                riskUsdActual = riskSizing.riskUsdActual;
+                sizingMode = 'risk_pct';
+            } else {
+                skipped.push(
+                    `${instId}:${riskSizing.reason || 'risk_sizing_failed'}`
+                );
+                continue;
+            }
+        } else if (riskUsdTarget && !Number.isFinite(stopLoss)) {
+            skipped.push(`${instId}:missing_stop_loss`);
             continue;
+        } else {
+            size = computeOrderSize({
+                notional: fallbackNotional,
+                price,
+                contractValue: instrument.contractValue,
+                minSize: instrument.minSize,
+                lotSize: instrument.lotSize
+            });
+            if (!(size > 0)) {
+                skipped.push(`${instId}:size_too_small`);
+                continue;
+            }
+            notional = size * price * instrument.contractValue;
         }
 
         const side = entry.signal.status === 'BUY' ? 'buy' : 'sell';
@@ -338,6 +415,9 @@ const runBlofinAutoTrade = async ({ signals, snapshot, reason } = {}) => {
             size,
             price,
             notional,
+            sizingMode,
+            riskUsdTarget: riskUsdTarget || undefined,
+            riskUsdActual: riskUsdActual || undefined,
             status: settings.dryRun ? 'dry-run' : 'submitted',
             reason: reason || 'auto-trade',
             signal: entry.signal

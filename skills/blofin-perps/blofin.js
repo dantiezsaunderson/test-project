@@ -112,6 +112,11 @@ const reportAutoTrades = async (options) => {
         total: filtered.length,
         dryRun: filtered.filter((trade) => trade.status === 'dry-run').length,
         submitted: filtered.filter((trade) => trade.status !== 'dry-run').length,
+        totalNotional: 0,
+        avgNotional: 0,
+        totalRiskUsd: 0,
+        avgRiskUsd: 0,
+        byMode: {},
         byInst: {},
         bySide: {}
     };
@@ -119,9 +124,20 @@ const reportAutoTrades = async (options) => {
     filtered.forEach((trade) => {
         const instId = trade.instId || 'unknown';
         const side = trade.side || 'unknown';
+        const mode = trade.sizingMode || 'unknown';
+        const notional = Number(trade.notional || 0);
+        const riskUsd = Number(trade.riskUsdActual || 0);
         summary.byInst[instId] = (summary.byInst[instId] || 0) + 1;
         summary.bySide[side] = (summary.bySide[side] || 0) + 1;
+        summary.byMode[mode] = (summary.byMode[mode] || 0) + 1;
+        summary.totalNotional += Number.isFinite(notional) ? notional : 0;
+        summary.totalRiskUsd += Number.isFinite(riskUsd) ? riskUsd : 0;
     });
+
+    if (summary.total > 0) {
+        summary.avgNotional = summary.totalNotional / summary.total;
+        summary.avgRiskUsd = summary.totalRiskUsd / summary.total;
+    }
 
     const sample = filtered.slice(-Math.min(10, filtered.length));
     console.log(JSON.stringify({ summary, sample }, null, 2));
