@@ -37,7 +37,8 @@ app.get('/api/status', async (req, res) => {
             crypto: config.markets.crypto.enabled,
             forex: config.markets.forex.enabled,
             collectibles: config.markets.collectibles.enabled,
-            meme: config.markets.meme.enabled
+            meme: config.markets.meme.enabled,
+            polymarket: config.markets.polymarket.enabled
         }
     });
 });

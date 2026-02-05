@@ -8,7 +8,8 @@ const marketFetchers = {
     crypto: fetchers.fetchCrypto,
     forex: fetchers.fetchForex,
     collectibles: fetchers.fetchCollectibles,
-    meme: fetchers.fetchMeme
+    meme: fetchers.fetchMeme,
+    polymarket: fetchers.fetchPolymarket
 };
 
 let isRunning = false;

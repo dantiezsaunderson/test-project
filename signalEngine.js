@@ -126,6 +126,58 @@ const generateCollectibleSignals = (current, previous) => {
     );
 };
 
+const generatePolymarketSignals = (current, previous, spreadAlert) => {
+    if (!current || !current.best) {
+        return [];
+    }
+
+    const signals = [];
+    const previousBest = previous && previous.best ? previous.best : null;
+    const hasChanged =
+        !previousBest ||
+        previousBest.id !== current.best.id ||
+        previousBest.tokenId !== current.best.tokenId;
+
+    if (hasChanged) {
+        signals.push(
+            createSignal(
+                'polymarket',
+                'best-market',
+                `Best execution candidate: ${current.best.question} (${current.best.pickSide}).`,
+                {
+                    marketId: current.best.id,
+                    slug: current.best.slug,
+                    tokenId: current.best.tokenId,
+                    spread: current.best.spread,
+                    liquidity: current.best.liquidity,
+                    volume: current.best.volume
+                }
+            )
+        );
+    }
+
+    if (
+        Number.isFinite(current.best.spread) &&
+        current.best.spread <= spreadAlert
+    ) {
+        signals.push(
+            createSignal(
+                'polymarket',
+                'tight-spread',
+                `Tight spread detected (${current.best.spread.toFixed(4)}) for ${current.best.question}.`,
+                {
+                    marketId: current.best.id,
+                    slug: current.best.slug,
+                    tokenId: current.best.tokenId,
+                    spread: current.best.spread
+                }
+            )
+        );
+    }
+
+    return signals;
+};
+
 const generateSignals = (market, currentSnapshot, previousSnapshot) => {
     const currentData = currentSnapshot ? currentSnapshot.data : null;
     const previousData = previousSnapshot ? previousSnapshot.data : null;
@@ -158,6 +210,14 @@ const generateSignals = (market, currentSnapshot, previousSnapshot) => {
 
     if (market === 'collectibles') {
         return generateCollectibleSignals(currentData, previousData);
+    }
+
+    if (market === 'polymarket') {
+        return generatePolymarketSignals(
+            currentData,
+            previousData,
+            config.markets.polymarket.spreadAlert
+        );
     }
 
     return [];

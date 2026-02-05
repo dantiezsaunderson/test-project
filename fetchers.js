@@ -1,5 +1,6 @@
 const axios = require('axios');
 const config = require('./config');
+const polymarketClient = require('./polymarketClient');
 
 const http = axios.create({
     timeout: 10000
@@ -113,9 +114,37 @@ const fetchCollectibles = async () => {
     };
 };
 
+const fetchPolymarket = async () => {
+    const settings = config.markets.polymarket;
+    const discovery = await polymarketClient.discoverBestMarket({
+        gammaHost: settings.gammaHost,
+        clobHost: settings.clobHost,
+        chainId: settings.chainId,
+        minLiquidity: settings.minLiquidity,
+        minVolume: settings.minVolume,
+        candidates: settings.candidates,
+        spreadCheckTop: settings.spreadCheckTop,
+        pickSide: settings.pickSide
+    });
+
+    const topSignals = discovery.evaluated
+        .filter((candidate) => candidate.spread !== null)
+        .slice(0, settings.signalTop);
+
+    return {
+        source: 'polymarket',
+        generatedAt: new Date().toISOString(),
+        pickSide: discovery.pickSide,
+        totals: discovery.totals,
+        best: discovery.best,
+        topCandidates: topSignals
+    };
+};
+
 module.exports = {
     fetchCrypto,
     fetchMeme,
     fetchForex,
-    fetchCollectibles
+    fetchCollectibles,
+    fetchPolymarket
 };

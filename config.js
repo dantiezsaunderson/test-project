@@ -76,6 +76,22 @@ const config = {
         collectibles: {
             enabled: process.env.COLLECTIBLES_ENABLED !== 'false',
             setsPageSize: parseNumber(process.env.POKEMON_PAGE_SIZE, 6)
+        },
+        polymarket: {
+            enabled: process.env.POLYMARKET_ENABLED !== 'false',
+            gammaHost: process.env.POLYMARKET_GAMMA_HOST || 'https://gamma-api.polymarket.com',
+            clobHost: process.env.POLYMARKET_CLOB_HOST || 'https://clob.polymarket.com',
+            chainId: parseNumber(process.env.POLYMARKET_CHAIN_ID, 137),
+            minLiquidity: parseNumber(process.env.POLYMARKET_MIN_LIQUIDITY, 20000),
+            minVolume: parseNumber(process.env.POLYMARKET_MIN_VOLUME, 20000),
+            candidates: parseNumber(process.env.POLYMARKET_CANDIDATES, 80),
+            spreadCheckTop: parseNumber(process.env.POLYMARKET_SPREAD_CHECK_TOP, 20),
+            pickSide: (process.env.POLYMARKET_PICK_SIDE || 'YES').toUpperCase(),
+            signalTop: parseNumber(process.env.POLYMARKET_SIGNAL_TOP, 5),
+            spreadAlert: parseNumber(process.env.POLYMARKET_SPREAD_ALERT, 0.02),
+            allowTrading: process.env.POLYMARKET_ALLOW_TRADING === 'true',
+            dryRun: process.env.POLYMARKET_DRY_RUN !== 'false',
+            maxOrderUsdc: parseNumber(process.env.POLYMARKET_MAX_ORDER_USDC, 10)
         }
     }
 };
