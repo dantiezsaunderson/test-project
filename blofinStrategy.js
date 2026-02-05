@@ -112,6 +112,25 @@ const buildIccSignal = (highCandles, entryCandles, options) => {
     const indicationIndex = indicationBullish
         ? lastSwingHigh.index
         : lastSwingLow.index;
+    const displacementPct = indicationBullish
+        ? (lastCandle.close - indicationLevel) / indicationLevel
+        : (indicationLevel - lastCandle.close) / indicationLevel;
+
+    if (
+        Number.isFinite(options.minDisplacementPct) &&
+        options.minDisplacementPct > 0 &&
+        displacementPct < options.minDisplacementPct
+    ) {
+        return {
+            status: 'WAIT',
+            bias: indicationDirection,
+            reasons: ['Indication without displacement'],
+            indicationLevel,
+            displacementPct,
+            lastClose: lastCandle.close
+        };
+    }
+
     const rangeSlice = getRangeSlice(highCandles, indicationIndex);
     const impulseHigh = Math.max(...rangeSlice.map((c) => c.high));
     const impulseLow = Math.min(...rangeSlice.map((c) => c.low));

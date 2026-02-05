@@ -113,6 +113,7 @@ Key variables (see `.env.example`):
 - `BLOFIN_AUTO_SESSION_WINDOWS` - optional UTC windows (e.g. `07:00-11:00,13:30-16:00`)
 - `BLOFIN_AUTO_ORDER_TYPE` - `market` only
 - `BLOFIN_PERF_CANDLE_LIMIT` - candles used for performance evaluation window
+- `BLOFIN_ICC_MIN_DISPLACEMENT_PCT` - minimum displacement for the indication (0 disables)
 
 To run a scan:
 ```bash

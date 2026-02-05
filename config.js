@@ -197,6 +197,10 @@ const config = {
                 correctionThreshold: parseNumber(
                     process.env.BLOFIN_ICC_CORR_THRESHOLD,
                     0.382
+                ),
+                minDisplacementPct: parseNumber(
+                    process.env.BLOFIN_ICC_MIN_DISPLACEMENT_PCT,
+                    0
                 )
             }
         }
