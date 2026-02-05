@@ -131,6 +131,14 @@ Example:
 - `node /absolute/path/to/this-repo/skills/polymarket/polymarket.js balance --asset collateral`
 - `node /absolute/path/to/this-repo/skills/polymarket/polymarket.js trade --confirm`
 
+### Additional OpenClaw skills
+- `skills/market-signals` - offline summary of crypto/forex/Polymarket signals
+- `skills/passive-income-lab` - generate passive income opportunities and plans
+- `skills/market-edge-lab` - formulate and test edge hypotheses
+
+Example:
+- `node /absolute/path/to/this-repo/skills/market-signals/market-signals.js --limit 10`
+
 ## Notes
 - This bot is for research and alerting only.
 - It does not place trades or provide financial advice.
