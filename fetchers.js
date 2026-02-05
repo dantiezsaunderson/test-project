@@ -1,0 +1,104 @@
+const axios = require('axios');
+const config = require('./config');
+
+const http = axios.create({
+    timeout: 10000
+});
+
+const buildPriceSnapshot = (raw, currency) =>
+    Object.entries(raw || {}).reduce((acc, [id, values]) => {
+        const price = values[currency];
+        const change = values[`${currency}_24h_change`];
+        acc[id] = {
+            price,
+            change24h: Number.isFinite(change) ? change : null
+        };
+        return acc;
+    }, {});
+
+const fetchCoinGecko = async (ids, currency) => {
+    if (!ids.length) {
+        return {};
+    }
+    const { data } = await http.get(
+        'https://api.coingecko.com/api/v3/simple/price',
+        {
+            params: {
+                ids: ids.join(','),
+                vs_currencies: currency,
+                include_24hr_change: true
+            }
+        }
+    );
+    return buildPriceSnapshot(data, currency);
+};
+
+const fetchCrypto = async () => {
+    const { ids, vsCurrency } = config.markets.crypto;
+    const prices = await fetchCoinGecko(ids, vsCurrency);
+    return {
+        source: 'coingecko',
+        vsCurrency,
+        prices
+    };
+};
+
+const fetchMeme = async () => {
+    const { ids, vsCurrency } = config.markets.meme;
+    const prices = await fetchCoinGecko(ids, vsCurrency);
+    return {
+        source: 'coingecko',
+        vsCurrency,
+        prices
+    };
+};
+
+const fetchForex = async () => {
+    const { base, symbols } = config.markets.forex;
+    const { data } = await http.get('https://api.exchangerate.host/latest', {
+        params: {
+            base,
+            symbols: symbols.join(',')
+        }
+    });
+
+    return {
+        source: 'exchangerate.host',
+        base,
+        rates: data && data.rates ? data.rates : {}
+    };
+};
+
+const fetchCollectibles = async () => {
+    const headers = {};
+    if (config.apiKeys.pokemonTcg) {
+        headers['X-Api-Key'] = config.apiKeys.pokemonTcg;
+    }
+
+    const { data } = await http.get('https://api.pokemontcg.io/v2/sets', {
+        params: {
+            pageSize: config.markets.collectibles.setsPageSize,
+            orderBy: '-releaseDate'
+        },
+        headers
+    });
+
+    const sets = (data && data.data ? data.data : []).map((set) => ({
+        id: set.id,
+        name: set.name,
+        releaseDate: set.releaseDate,
+        total: set.total
+    }));
+
+    return {
+        source: 'pokemontcg',
+        sets
+    };
+};
+
+module.exports = {
+    fetchCrypto,
+    fetchMeme,
+    fetchForex,
+    fetchCollectibles
+};

@@ -1,0 +1,27 @@
+{
+  "name": "workspace",
+  "version": "1.0.0",
+  "description": "This project is a lightweight landing page that outlines how to set up a personal Clawd bot trading assistant powered by [openclaw.ai](https://openclaw.ai). It highlights multi-market edge discovery across crypto, forex, collectibles, and meme coins while emphasizing risk guardrails.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "run:once": "node server.js --run-once",
+    "test": "echo \"No tests specified\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dantiezsaunderson/test-project.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/dantiezsaunderson/test-project/issues"
+  },
+  "homepage": "https://github.com/dantiezsaunderson/test-project#readme",
+  "dependencies": {
+    "axios": "^1.13.4",
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1"
+  }
+}
