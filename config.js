@@ -160,6 +160,8 @@ const config = {
                 process.env.BLOFIN_POSITION_MODE || 'net_mode',
             autoTrade: process.env.BLOFIN_AUTO_TRADE === 'true',
             autoTradeKillSwitch: process.env.BLOFIN_KILL_SWITCH === 'true',
+            autoPauseAfterTrade:
+                process.env.BLOFIN_AUTO_PAUSE_AFTER_TRADE === 'true',
             autoTradeCooldownMinutes: parseNumber(
                 process.env.BLOFIN_AUTO_COOLDOWN_MINUTES,
                 60

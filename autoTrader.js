@@ -257,6 +257,15 @@ const runBlofinAutoTrade = async ({ signals, snapshot, reason } = {}) => {
     if (!settings.allowTrading) {
         return { status: 'blocked', reason: 'trading_disabled', actions };
     }
+    if (settings.autoPauseAfterTrade) {
+        const priorTrades = await dataStore.getAutoTrades();
+        const hasLiveTrade = priorTrades.some(
+            (trade) => trade && trade.status && trade.status !== 'dry-run'
+        );
+        if (hasLiveTrade) {
+            return { status: 'blocked', reason: 'paused_after_trade', actions };
+        }
+    }
     if (!isWithinSessions(settings.autoTradeSessions, now)) {
         return { status: 'blocked', reason: 'out_of_session', actions };
     }
