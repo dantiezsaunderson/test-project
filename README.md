@@ -103,9 +103,11 @@ Key variables (see `.env.example`):
 - `BLOFIN_AUTO_TRADE` - must be `true` to enable auto-trading
 - `BLOFIN_KILL_SWITCH` - set `true` to halt auto-trading immediately
 - `BLOFIN_RISK_USDT` - per-trade notional cap (safe default: 2)
+- `BLOFIN_RISK_PCT` - percent-of-available USDT per trade (e.g. 0.03 = 3%)
+  - When `BLOFIN_RISK_PCT` is set and a USDT balance is available, it overrides `BLOFIN_RISK_USDT`.
 - `BLOFIN_MAX_OPEN_POSITIONS` - hard cap on open positions (safe default: 1)
 - `BLOFIN_MAX_OPEN_POSITIONS_DRY` - higher cap for dry-run forward testing
-- `BLOFIN_AUTO_DRY_MAX_ACTIONS` - max dry-run trades per cycle
+- `BLOFIN_AUTO_DRY_MAX_ACTIONS` - max dry-run trades per cycle (0 = unlimited)
 - `BLOFIN_AUTO_COOLDOWN_MINUTES` - cooldown between trades per instrument
 - `BLOFIN_AUTO_SESSION_WINDOWS` - optional UTC windows (e.g. `07:00-11:00,13:30-16:00`)
 - `BLOFIN_AUTO_ORDER_TYPE` - `market` only
@@ -125,6 +127,11 @@ To run one auto-trade cycle (safe defaults keep this disabled):
 ```bash
 BLOFIN_AUTO_TRADE=true BLOFIN_ALLOW_TRADING=true BLOFIN_DRY_RUN=true \
   node skills/blofin-perps/blofin.js auto --limit 5
+```
+
+To review the last 7 days of auto-trades (useful for forward testing):
+```bash
+node skills/blofin-perps/blofin.js report --days 7
 ```
 
 To derive L2 API credentials, use the OpenClaw skill or run:

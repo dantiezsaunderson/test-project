@@ -7,6 +7,7 @@ const config = require('../../config');
 const blofinClient = require('../../blofinClient');
 const blofinScanner = require('../../blofinScanner');
 const { runBlofinAutoTrade } = require('../../autoTrader');
+const dataStore = require('../../dataStore');
 
 const helpText = `
 Blofin Perps CLI
@@ -14,12 +15,14 @@ Blofin Perps CLI
 Usage:
   blofin.js scan --limit 5
   blofin.js auto --limit 5
+  blofin.js report --days 7
   blofin.js positions
   blofin.js balance
   blofin.js order --inst BTC-USDT --side buy --type market --size 1 --confirm
 
 Options:
   --limit <number>
+  --days <number>
   --inst <instId>
   --side buy|sell
   --type market|limit
@@ -90,6 +93,38 @@ const autoTradeOnce = async (options) => {
         reason: 'cli-auto'
     });
     console.log(JSON.stringify(result, null, 2));
+};
+
+const reportAutoTrades = async (options) => {
+    const days = Number(options.days || 7);
+    const sinceMs = Date.now() - days * 24 * 60 * 60 * 1000;
+    const trades = await dataStore.getAutoTrades();
+    const filtered = trades.filter((trade) => {
+        if (!trade || !trade.timestamp) {
+            return false;
+        }
+        const ts = new Date(trade.timestamp).getTime();
+        return Number.isFinite(ts) && ts >= sinceMs;
+    });
+
+    const summary = {
+        since: new Date(sinceMs).toISOString(),
+        total: filtered.length,
+        dryRun: filtered.filter((trade) => trade.status === 'dry-run').length,
+        submitted: filtered.filter((trade) => trade.status !== 'dry-run').length,
+        byInst: {},
+        bySide: {}
+    };
+
+    filtered.forEach((trade) => {
+        const instId = trade.instId || 'unknown';
+        const side = trade.side || 'unknown';
+        summary.byInst[instId] = (summary.byInst[instId] || 0) + 1;
+        summary.bySide[side] = (summary.bySide[side] || 0) + 1;
+    });
+
+    const sample = filtered.slice(-Math.min(10, filtered.length));
+    console.log(JSON.stringify({ summary, sample }, null, 2));
 };
 
 const showPositions = async () => {
@@ -180,6 +215,10 @@ const main = async () => {
     }
     if (command === 'auto') {
         await autoTradeOnce(options);
+        return;
+    }
+    if (command === 'report') {
+        await reportAutoTrades(options);
         return;
     }
     if (command === 'positions') {

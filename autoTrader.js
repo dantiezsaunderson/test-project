@@ -201,7 +201,9 @@ const runBlofinAutoTrade = async ({ signals, snapshot, reason } = {}) => {
     const actions = [];
     const skipped = [];
     const maxActions = settings.dryRun
-        ? Math.max(1, settings.autoDryMaxActions)
+        ? settings.autoDryMaxActions > 0
+            ? Math.max(1, settings.autoDryMaxActions)
+            : Number.POSITIVE_INFINITY
         : 1;
 
     if (!settings.autoTrade) {
@@ -236,7 +238,9 @@ const runBlofinAutoTrade = async ({ signals, snapshot, reason } = {}) => {
         (position) => Math.abs(getPositionSize(position)) > 0
     );
     const maxOpenPositionsAllowed = settings.dryRun
-        ? settings.maxOpenPositionsDry
+        ? settings.maxOpenPositionsDry > 0
+            ? settings.maxOpenPositionsDry
+            : Number.POSITIVE_INFINITY
         : settings.maxOpenPositions;
     if (
         Number.isFinite(maxOpenPositionsAllowed) &&
@@ -247,13 +251,19 @@ const runBlofinAutoTrade = async ({ signals, snapshot, reason } = {}) => {
 
     const tickerMap = buildTickerMap(tickers);
     const availableUsdt = extractAvailableUsdt(balance);
-    const baseNotional = Math.min(
-        settings.riskPerTradeUsdt,
-        settings.maxOrderUsdt
-    );
-    const notional = Number.isFinite(availableUsdt)
-        ? Math.min(baseNotional, availableUsdt)
+    const riskPct = settings.riskPerTradePct;
+    let baseNotional = settings.riskPerTradeUsdt;
+    if (Number.isFinite(riskPct) && riskPct > 0) {
+        if (Number.isFinite(availableUsdt)) {
+            baseNotional = availableUsdt * riskPct;
+        }
+    }
+    let notional = Number.isFinite(settings.maxOrderUsdt)
+        ? Math.min(baseNotional, settings.maxOrderUsdt)
         : baseNotional;
+    if (Number.isFinite(availableUsdt)) {
+        notional = Math.min(notional, availableUsdt);
+    }
 
     if (!(notional > 0)) {
         return { status: 'blocked', reason: 'no_notional', actions };
@@ -262,8 +272,18 @@ const runBlofinAutoTrade = async ({ signals, snapshot, reason } = {}) => {
         return { status: 'blocked', reason: 'order_type_not_supported', actions };
     }
 
+    const simulatedPositions = new Set(
+        openPositions.map((position) => position.instId).filter(Boolean)
+    );
     for (const entry of actionable) {
         if (actions.length >= maxActions) {
+            break;
+        }
+        if (
+            Number.isFinite(maxOpenPositionsAllowed) &&
+            simulatedPositions.size >= maxOpenPositionsAllowed
+        ) {
+            skipped.push('max_open_positions');
             break;
         }
         const instId = entry.instId;
@@ -271,7 +291,7 @@ const runBlofinAutoTrade = async ({ signals, snapshot, reason } = {}) => {
             skipped.push('missing_inst_id');
             continue;
         }
-        if (openPositions.some((position) => position.instId === instId)) {
+        if (simulatedPositions.has(instId)) {
             skipped.push(`${instId}:open_position`);
             continue;
         }
@@ -326,7 +346,8 @@ const runBlofinAutoTrade = async ({ signals, snapshot, reason } = {}) => {
         if (settings.dryRun) {
             await dataStore.addAutoTrade(action);
             actions.push(action);
-            break;
+            simulatedPositions.add(instId);
+            continue;
         }
 
         if (settings.leverage) {
@@ -354,6 +375,7 @@ const runBlofinAutoTrade = async ({ signals, snapshot, reason } = {}) => {
         action.orderId = result?.orderId || result?.ordId || null;
         await dataStore.addAutoTrade(action);
         actions.push(action);
+        simulatedPositions.add(instId);
         break;
     }
 

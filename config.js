@@ -154,17 +154,18 @@ const config = {
                 []
             ),
             riskPerTradeUsdt: parseNumber(process.env.BLOFIN_RISK_USDT, 2),
+            riskPerTradePct: parseNumber(process.env.BLOFIN_RISK_PCT, 0),
             maxOpenPositions: parseNumber(
                 process.env.BLOFIN_MAX_OPEN_POSITIONS,
                 1
             ),
             maxOpenPositionsDry: parseNumber(
                 process.env.BLOFIN_MAX_OPEN_POSITIONS_DRY,
-                5
+                10
             ),
             autoDryMaxActions: parseNumber(
                 process.env.BLOFIN_AUTO_DRY_MAX_ACTIONS,
-                5
+                0
             ),
             autoOrderType: (process.env.BLOFIN_AUTO_ORDER_TYPE || 'market').toLowerCase(),
             strategy: {

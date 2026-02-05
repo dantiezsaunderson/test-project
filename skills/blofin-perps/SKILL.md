@@ -16,6 +16,8 @@ It can also run a single auto-trade cycle when the auto-trade guards are enabled
   - `node {baseDir}/blofin.js scan --limit 5`
 - Run one auto-trade cycle (safe by default):
   - `node {baseDir}/blofin.js auto --limit 5`
+- Review recent auto-trades:
+  - `node {baseDir}/blofin.js report --days 7`
 - View positions (private):
   - `node {baseDir}/blofin.js positions`
 - View balances (private):
