@@ -19,6 +19,7 @@ be used for market data, macro data, collectibles, and sentiment.
 - bot.js - Bot runner that fetches data and generates signals
 - dataStore.js - Local JSON storage for snapshots and signals
 - fetchers.js - Public API data connectors
+- polymarketClient.js - Polymarket discovery and trading helpers
 - signalEngine.js - Rule-based signal generator
 - notifier.js - Console and webhook alert delivery
 - config.js - Environment-driven settings
@@ -59,6 +60,33 @@ Key options:
 - `WEBHOOK_URL` - send alerts to Slack, Discord, or custom webhooks
 - `CRYPTO_IDS`, `MEME_IDS`, `FOREX_SYMBOLS` - watchlist configuration
 - `POKEMON_TCG_API_KEY` - increase Pokemon TCG API rate limits
+- `POLYMARKET_*` - Polymarket discovery and trading controls
+
+## Polymarket integration
+The bot can discover Polymarket markets, score liquidity/volume, and produce
+execution-focused signals based on spread checks. Trading is **off by default**
+and requires explicit opt-in.
+
+Key variables (see `.env.example`):
+- `POLYMARKET_GAMMA_HOST`, `POLYMARKET_CLOB_HOST` - API hosts
+- `POLYMARKET_MIN_LIQUIDITY`, `POLYMARKET_MIN_VOLUME` - filters
+- `POLYMARKET_PICK_SIDE` - YES or NO outcome token
+- `POLYMARKET_ALLOW_TRADING` - must be `true` to allow trade execution
+- `POLYMARKET_DRY_RUN` - must be `false` to actually place orders
+
+To derive L2 API credentials, use the OpenClaw skill or run:
+```bash
+node skills/polymarket/polymarket.js derive --write-env
+```
+
+To place a trade (explicit confirmation required):
+```bash
+export TOKEN_ID=your-token-id
+export PRICE=0.48
+export SIZE_USDC=5
+POLYMARKET_ALLOW_TRADING=true POLYMARKET_DRY_RUN=false \
+  node skills/polymarket/polymarket.js trade --confirm
+```
 
 ## OpenClaw integration (real Clawd bot)
 This repo ships an OpenClaw skill that connects to the local bot API.
@@ -93,6 +121,14 @@ Example commands OpenClaw can run (via exec tool):
 
 If you set `BOT_API_KEY` on the bot server, also export `CLAWD_BOT_API_KEY`
 for OpenClaw before invoking the skill.
+
+### OpenClaw Polymarket skill
+This repo also ships `skills/polymarket` to let OpenClaw query Polymarket
+signals and (when explicitly allowed) place trades.
+
+Example:
+- `node /absolute/path/to/this-repo/skills/polymarket/polymarket.js signals --limit 5`
+- `node /absolute/path/to/this-repo/skills/polymarket/polymarket.js trade --confirm`
 
 ## Notes
 - This bot is for research and alerting only.
