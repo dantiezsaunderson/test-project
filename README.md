@@ -8,6 +8,9 @@ and meme coins while emphasizing risk guardrails.
 It also includes a quick-start guide on how to use the bot in practice, from
 defining a thesis and connecting data to paper testing and go-live guardrails.
 
+The landing page now lists example public API sources and directories that can
+be used for market data, macro data, collectibles, and sentiment.
+
 ## Project Structure
 - index.html - Main HTML layout and content
 - styles.css - Styling for the landing page
