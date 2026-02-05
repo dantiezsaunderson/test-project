@@ -1,6 +1,7 @@
 const axios = require('axios');
 const config = require('./config');
 const polymarketClient = require('./polymarketClient');
+const blofinScanner = require('./blofinScanner');
 
 const http = axios.create({
     timeout: 10000
@@ -144,10 +145,24 @@ const fetchPolymarket = async () => {
     };
 };
 
+const fetchBlofinPerps = async () => {
+    const scan = await blofinScanner.fetchSignals();
+    return {
+        source: 'blofin',
+        generatedAt: scan.generatedAt,
+        timeframe: scan.timeframe,
+        instType: scan.instType,
+        total: scan.total,
+        signals: scan.signals,
+        errors: scan.errors
+    };
+};
+
 module.exports = {
     fetchCrypto,
     fetchMeme,
     fetchForex,
     fetchCollectibles,
-    fetchPolymarket
+    fetchPolymarket,
+    fetchBlofinPerps
 };

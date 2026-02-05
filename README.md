@@ -61,6 +61,7 @@ Key options:
 - `CRYPTO_IDS`, `MEME_IDS`, `FOREX_SYMBOLS` - watchlist configuration
 - `POKEMON_TCG_API_KEY` - increase Pokemon TCG API rate limits
 - `POLYMARKET_*` - Polymarket discovery and trading controls
+- `BLOFIN_*` - Blofin perps scanning and execution controls
 
 ## Polymarket integration
 The bot can scan the Polymarket website, score liquidity/volume/spread, and
@@ -77,6 +78,28 @@ Key variables (see `.env.example`):
 - `POLYMARKET_PRICE_MOVE_ALERT` - momentum threshold for research signals
 - `POLYMARKET_ALLOW_TRADING` - must be `true` to allow trade execution
 - `POLYMARKET_DRY_RUN` - must be `false` to actually place orders
+
+## Blofin perps integration
+The bot can scan Blofin perpetuals, compute ICC-style signals, and (when enabled)
+place **manual** orders. Trading is off by default.
+
+Key variables (see `.env.example`):
+- `BLOFIN_API_KEY`, `BLOFIN_API_SECRET`, `BLOFIN_API_PASSPHRASE`
+- `BLOFIN_INSTRUMENTS` - comma-separated perps watchlist
+- `BLOFIN_TIMEFRAME` - candle timeframe for scans
+- `BLOFIN_ALLOW_TRADING` - must be `true` to allow manual orders
+- `BLOFIN_DRY_RUN` - must be `false` to actually place orders
+
+To run a scan:
+```bash
+node skills/blofin-perps/blofin.js scan --limit 5
+```
+
+To place a manual order:
+```bash
+BLOFIN_ALLOW_TRADING=true BLOFIN_DRY_RUN=false \
+  node skills/blofin-perps/blofin.js order --inst BTC-USDT --side buy --type market --size 1 --confirm
+```
 
 To derive L2 API credentials, use the OpenClaw skill or run:
 ```bash
@@ -141,6 +164,7 @@ Example:
 - `skills/market-edge-lab` - formulate and test edge hypotheses
 - `skills/moltron-skill-creator` - Moltron skill creator/evolution loop
 - `skills/polymarket-btc-15m-assistant` - Polymarket BTC 15m console assistant
+- `skills/blofin-perps` - Blofin perps scanner + manual order CLI
 
 Example:
 - `node /absolute/path/to/this-repo/skills/market-signals/market-signals.js --limit 10`

@@ -229,6 +229,56 @@ const generatePolymarketSignals = (current, previous, settings) => {
     return signals;
 };
 
+const generateBlofinSignals = (current, previous) => {
+    if (!current || !Array.isArray(current.signals)) {
+        return [];
+    }
+
+    const previousMap = new Map();
+    if (previous && Array.isArray(previous.signals)) {
+        previous.signals.forEach((entry) => {
+            if (entry.instId) {
+                previousMap.set(entry.instId, entry);
+            }
+        });
+    }
+
+    return current.signals.map((entry) => {
+        const signal = entry.signal || {};
+        const previousEntry = previousMap.get(entry.instId);
+        const previousScore = previousEntry?.signal?.score;
+        const scoreDelta =
+            typeof previousScore === 'number' && typeof signal.score === 'number'
+                ? signal.score - previousScore
+                : null;
+
+        const setup = signal.setup || 'wait';
+        const scoreLabel =
+            typeof signal.score === 'number' ? signal.score : 'n/a';
+        const scoreDeltaLabel =
+            scoreDelta !== null ? `${scoreDelta >= 0 ? '+' : ''}${scoreDelta}` : 'n/a';
+
+        return createSignal(
+            'blofin',
+            'icc-scan',
+            `${entry.instId} ICC ${setup} | score ${scoreLabel} (${scoreDeltaLabel}).`,
+            {
+                instId: entry.instId,
+                setup,
+                score: signal.score,
+                bias: signal.bias,
+                reasons: signal.reasons,
+                lastPrice: entry.last,
+                volume24h: entry.volume24h,
+                rsi: signal.rsi,
+                macd: signal.macd,
+                vwap: signal.vwap,
+                vwapDist: signal.vwapDist
+            }
+        );
+    });
+};
+
 const generateSignals = (market, currentSnapshot, previousSnapshot) => {
     const currentData = currentSnapshot ? currentSnapshot.data : null;
     const previousData = previousSnapshot ? previousSnapshot.data : null;
@@ -269,6 +319,10 @@ const generateSignals = (market, currentSnapshot, previousSnapshot) => {
             previousData,
             config.markets.polymarket
         );
+    }
+
+    if (market === 'blofin') {
+        return generateBlofinSignals(currentData, previousData);
     }
 
     return [];

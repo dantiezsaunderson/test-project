@@ -9,7 +9,8 @@ const marketFetchers = {
     forex: fetchers.fetchForex,
     collectibles: fetchers.fetchCollectibles,
     meme: fetchers.fetchMeme,
-    polymarket: fetchers.fetchPolymarket
+    polymarket: fetchers.fetchPolymarket,
+    blofin: fetchers.fetchBlofinPerps
 };
 
 let isRunning = false;

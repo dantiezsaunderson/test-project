@@ -96,6 +96,69 @@ const config = {
             allowTrading: process.env.POLYMARKET_ALLOW_TRADING === 'true',
             dryRun: process.env.POLYMARKET_DRY_RUN !== 'false',
             maxOrderUsdc: parseNumber(process.env.POLYMARKET_MAX_ORDER_USDC, 10)
+        },
+        blofin: {
+            enabled: process.env.BLOFIN_ENABLED !== 'false',
+            useDemo: process.env.BLOFIN_USE_DEMO === 'true',
+            baseUrl: process.env.BLOFIN_API_BASE || 'https://openapi.blofin.com',
+            demoBaseUrl:
+                process.env.BLOFIN_DEMO_BASE ||
+                'https://demo-trading-openapi.blofin.com',
+            wsPublic:
+                process.env.BLOFIN_WS_PUBLIC ||
+                'wss://openapi.blofin.com/ws/public',
+            wsPrivate:
+                process.env.BLOFIN_WS_PRIVATE ||
+                'wss://openapi.blofin.com/ws/private',
+            apiKey: process.env.BLOFIN_API_KEY || '',
+            apiSecret: process.env.BLOFIN_API_SECRET || '',
+            apiPassphrase: process.env.BLOFIN_API_PASSPHRASE || '',
+            instType: process.env.BLOFIN_INST_TYPE || 'SWAP',
+            instruments: parseList(process.env.BLOFIN_INSTRUMENTS, [
+                'BTC-USDT',
+                'ETH-USDT'
+            ]),
+            timeframe: process.env.BLOFIN_TIMEFRAME || '15m',
+            candleLimit: parseNumber(process.env.BLOFIN_CANDLE_LIMIT, 200),
+            scanTop: parseNumber(process.env.BLOFIN_SCAN_TOP, 5),
+            minVolume24h: parseNumber(process.env.BLOFIN_MIN_VOL_24H, 0),
+            allowTrading: process.env.BLOFIN_ALLOW_TRADING === 'true',
+            dryRun: process.env.BLOFIN_DRY_RUN !== 'false',
+            maxOrderUsdt: parseNumber(process.env.BLOFIN_MAX_ORDER_USDT, 10),
+            leverage: parseNumber(process.env.BLOFIN_LEVERAGE, 5),
+            marginMode: process.env.BLOFIN_MARGIN_MODE || 'cross',
+            positionMode:
+                process.env.BLOFIN_POSITION_MODE || 'net_mode',
+            strategy: {
+                minCandles: parseNumber(
+                    process.env.BLOFIN_ICC_MIN_CANDLES,
+                    80
+                ),
+                minScore: parseNumber(process.env.BLOFIN_ICC_MIN_SCORE, 3),
+                emaFast: parseNumber(process.env.BLOFIN_ICC_EMA_FAST, 50),
+                emaSlow: parseNumber(process.env.BLOFIN_ICC_EMA_SLOW, 200),
+                sweepLookback: parseNumber(
+                    process.env.BLOFIN_ICC_SWEEP_LOOKBACK,
+                    20
+                ),
+                mssLookback: parseNumber(
+                    process.env.BLOFIN_ICC_MSS_LOOKBACK,
+                    30
+                ),
+                fvgLookback: parseNumber(
+                    process.env.BLOFIN_ICC_FVG_LOOKBACK,
+                    10
+                ),
+                rsiPeriod: parseNumber(process.env.BLOFIN_ICC_RSI_PERIOD, 14),
+                rsiBull: parseNumber(process.env.BLOFIN_ICC_RSI_BULL, 55),
+                rsiBear: parseNumber(process.env.BLOFIN_ICC_RSI_BEAR, 45),
+                macdFast: parseNumber(process.env.BLOFIN_ICC_MACD_FAST, 12),
+                macdSlow: parseNumber(process.env.BLOFIN_ICC_MACD_SLOW, 26),
+                macdSignal: parseNumber(
+                    process.env.BLOFIN_ICC_MACD_SIGNAL,
+                    9
+                )
+            }
         }
     }
 };
