@@ -245,35 +245,26 @@ const generateBlofinSignals = (current, previous) => {
 
     return current.signals.map((entry) => {
         const signal = entry.signal || {};
-        const previousEntry = previousMap.get(entry.instId);
-        const previousScore = previousEntry?.signal?.score;
-        const scoreDelta =
-            typeof previousScore === 'number' && typeof signal.score === 'number'
-                ? signal.score - previousScore
-                : null;
-
-        const setup = signal.setup || 'wait';
-        const scoreLabel =
-            typeof signal.score === 'number' ? signal.score : 'n/a';
-        const scoreDeltaLabel =
-            scoreDelta !== null ? `${scoreDelta >= 0 ? '+' : ''}${scoreDelta}` : 'n/a';
+        const status = signal.status || 'WAIT';
+        const bias = signal.bias || 'neutral';
 
         return createSignal(
             'blofin',
             'icc-scan',
-            `${entry.instId} ICC ${setup} | score ${scoreLabel} (${scoreDeltaLabel}).`,
+            `${entry.instId} ICC ${status} (${bias}).`,
             {
                 instId: entry.instId,
-                setup,
-                score: signal.score,
-                bias: signal.bias,
+                status,
+                bias,
                 reasons: signal.reasons,
+                indicationLevel: signal.indicationLevel,
+                correctionExtreme: signal.correctionExtreme,
+                entryBreak: signal.entryBreak,
+                stopLoss: signal.stopLoss,
+                takeProfit: signal.takeProfit,
                 lastPrice: entry.last,
                 volume24h: entry.volume24h,
-                rsi: signal.rsi,
-                macd: signal.macd,
-                vwap: signal.vwap,
-                vwapDist: signal.vwapDist
+                timeframes: entry.timeframes
             }
         );
     });

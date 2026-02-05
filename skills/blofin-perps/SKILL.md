@@ -6,8 +6,8 @@ metadata: { "openclaw": { "requires": { "bins": ["node"] } } }
 
 # Blofin Perps Assistant
 
-This skill scans Blofin perpetuals using an ICC-style signal model and can
-place **manual** orders when explicitly confirmed.
+This skill scans Blofin perpetuals using the ICC (Indication → Correction →
+Continuation) model and can place **manual** orders when explicitly confirmed.
 
 ## Commands (via exec)
 

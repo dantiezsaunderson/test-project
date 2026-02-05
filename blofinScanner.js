@@ -64,12 +64,21 @@ const fetchSignals = async () => {
 
     for (const instId of selected) {
         try {
-            const candles = await blofinClient.fetchCandles({
+            const highCandles = await blofinClient.fetchCandles({
                 instId,
-                bar: settings.timeframe,
-                limit: settings.candleLimit
+                bar: settings.highTimeframe,
+                limit: settings.highCandleLimit
             });
-            const signal = buildIccSignal(candles, settings.strategy);
+            const entryCandles = await blofinClient.fetchCandles({
+                instId,
+                bar: settings.entryTimeframe,
+                limit: settings.entryCandleLimit
+            });
+            const signal = buildIccSignal(
+                highCandles,
+                entryCandles,
+                settings.strategy
+            );
             if (!signal) {
                 continue;
             }
@@ -78,7 +87,11 @@ const fetchSignals = async () => {
                 instId,
                 last: parseNumber(ticker ? ticker.last : null),
                 volume24h: parseNumber(ticker ? ticker.volCurrency24h : null),
-                signal
+                signal,
+                timeframes: {
+                    high: settings.highTimeframe,
+                    entry: settings.entryTimeframe
+                }
             });
         } catch (error) {
             errors.push({ instId, message: error.message });
@@ -88,7 +101,7 @@ const fetchSignals = async () => {
     return {
         generatedAt: new Date().toISOString(),
         instType: settings.instType,
-        timeframe: settings.timeframe,
+        timeframe: `${settings.highTimeframe}/${settings.entryTimeframe}`,
         total: selected.length,
         signals,
         errors

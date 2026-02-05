@@ -47,12 +47,23 @@ const parseArgs = (args) => {
 };
 
 const formatSignal = (entry) => {
-    const setup = entry.signal?.setup || 'wait';
-    const score = entry.signal?.score ?? 'n/a';
+    const status = entry.signal?.status || 'WAIT';
+    const bias = entry.signal?.bias || 'neutral';
     const reason = Array.isArray(entry.signal?.reasons)
         ? entry.signal.reasons.join('; ')
         : '';
-    return `${entry.instId} | ${setup} | score ${score} | ${reason}`;
+    const levels = [];
+    if (entry.signal?.indicationLevel) {
+        levels.push(`indication ${entry.signal.indicationLevel}`);
+    }
+    if (entry.signal?.stopLoss) {
+        levels.push(`SL ${entry.signal.stopLoss}`);
+    }
+    if (entry.signal?.takeProfit) {
+        levels.push(`TP ${entry.signal.takeProfit}`);
+    }
+    const levelText = levels.length ? ` | ${levels.join(' / ')}` : '';
+    return `${entry.instId} | ${status} (${bias})${levelText} | ${reason}`;
 };
 
 const scanSignals = async (options) => {

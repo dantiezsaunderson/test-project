@@ -1,175 +1,208 @@
-const indicators = require('./blofinIndicators');
-
 const getLast = (array) => array[array.length - 1];
 
-const detectFvg = (candles, lookback) => {
-    if (candles.length < 3) {
+const findSwings = (candles, pivot) => {
+    const highs = [];
+    const lows = [];
+    for (let i = pivot; i < candles.length - pivot; i += 1) {
+        const currentHigh = candles[i].high;
+        const currentLow = candles[i].low;
+        let isHigh = true;
+        let isLow = true;
+        for (let j = 1; j <= pivot; j += 1) {
+            if (candles[i - j].high >= currentHigh || candles[i + j].high > currentHigh) {
+                isHigh = false;
+            }
+            if (candles[i - j].low <= currentLow || candles[i + j].low < currentLow) {
+                isLow = false;
+            }
+        }
+        if (isHigh) {
+            highs.push({ index: i, price: currentHigh });
+        }
+        if (isLow) {
+            lows.push({ index: i, price: currentLow });
+        }
+    }
+    return { highs, lows };
+};
+
+const determineTrend = (highs, lows) => {
+    if (highs.length < 2 || lows.length < 2) {
+        return 'unknown';
+    }
+    const lastHigh = highs[highs.length - 1].price;
+    const prevHigh = highs[highs.length - 2].price;
+    const lastLow = lows[lows.length - 1].price;
+    const prevLow = lows[lows.length - 2].price;
+
+    if (lastHigh > prevHigh && lastLow > prevLow) {
+        return 'up';
+    }
+    if (lastHigh < prevHigh && lastLow < prevLow) {
+        return 'down';
+    }
+    return 'consolidation';
+};
+
+const getRangeSlice = (candles, startIndex) =>
+    candles.slice(Math.max(0, startIndex));
+
+const buildIccSignal = (highCandles, entryCandles, options) => {
+    if (
+        !Array.isArray(highCandles) ||
+        !Array.isArray(entryCandles) ||
+        highCandles.length < options.minCandles ||
+        entryCandles.length < options.entryMinCandles
+    ) {
         return null;
     }
-    const start = Math.max(2, candles.length - lookback);
-    for (let i = candles.length - 1; i >= start; i -= 1) {
-        const c0 = candles[i - 2];
-        const c2 = candles[i];
-        if (!c0 || !c2) continue;
-        if (c0.high < c2.low) {
-            return {
-                direction: 'bullish',
-                low: c0.high,
-                high: c2.low
-            };
-        }
-        if (c0.low > c2.high) {
-            return {
-                direction: 'bearish',
-                low: c2.high,
-                high: c0.low
-            };
-        }
-    }
-    return null;
-};
 
-const findSwingLevels = (candles, lookback) => {
-    const slice = candles.slice(Math.max(0, candles.length - lookback));
-    let swingHigh = null;
-    let swingLow = null;
-    slice.forEach((candle) => {
-        if (swingHigh === null || candle.high > swingHigh) {
-            swingHigh = candle.high;
-        }
-        if (swingLow === null || candle.low < swingLow) {
-            swingLow = candle.low;
-        }
-    });
-    return { swingHigh, swingLow };
-};
-
-const detectLiquiditySweep = (candles, lookback) => {
-    if (candles.length < 2) {
-        return { bullish: false, bearish: false };
-    }
-    const last = getLast(candles);
-    const slice = candles.slice(Math.max(0, candles.length - lookback - 1), -1);
-    const lows = slice.map((c) => c.low);
-    const highs = slice.map((c) => c.high);
-    const minLow = Math.min(...lows);
-    const maxHigh = Math.max(...highs);
-    const bullish = last.low < minLow && last.close > last.open;
-    const bearish = last.high > maxHigh && last.close < last.open;
-    return { bullish, bearish };
-};
-
-const computeBias = (closes, fast, slow) => {
-    const fastEma = indicators.ema(closes, fast);
-    const slowEma = indicators.ema(closes, slow);
-    if (fastEma === null || slowEma === null) {
-        return { bias: 'neutral', fastEma, slowEma };
-    }
-    if (fastEma > slowEma) {
-        return { bias: 'bullish', fastEma, slowEma };
-    }
-    if (fastEma < slowEma) {
-        return { bias: 'bearish', fastEma, slowEma };
-    }
-    return { bias: 'neutral', fastEma, slowEma };
-};
-
-const buildIccSignal = (candles, options) => {
-    if (!Array.isArray(candles) || candles.length < options.minCandles) {
-        return null;
-    }
-    const last = getLast(candles);
-    const closes = candles.map((c) => c.close);
-    const biasInfo = computeBias(closes, options.emaFast, options.emaSlow);
-    const swing = findSwingLevels(candles, options.mssLookback);
-    const sweep = detectLiquiditySweep(candles, options.sweepLookback);
-    const fvg = detectFvg(candles, options.fvgLookback);
-    const rsi = indicators.computeRsi(closes, options.rsiPeriod);
-    const macd = indicators.computeMacd(
-        closes,
-        options.macdFast,
-        options.macdSlow,
-        options.macdSignal
+    const highSlice = highCandles.slice(
+        Math.max(0, highCandles.length - options.swingLookback)
     );
-    const vwapSeries = indicators.computeVwapSeries(candles);
-    const vwap = getLast(vwapSeries);
-    const vwapDist =
-        vwap && vwap !== 0 ? (last.close - vwap) / vwap : null;
-    const heiken = indicators.computeHeikenAshi(candles);
-    const heikenTrend = indicators.countConsecutive(heiken);
+    const highOffset = highCandles.length - highSlice.length;
+    const { highs, lows } = findSwings(highSlice, options.swingPivot);
+    const swingHighs = highs.map((h) => ({
+        index: h.index + highOffset,
+        price: h.price
+    }));
+    const swingLows = lows.map((l) => ({
+        index: l.index + highOffset,
+        price: l.price
+    }));
 
-    const mssBullish = swing.swingHigh !== null && last.close > swing.swingHigh;
-    const mssBearish = swing.swingLow !== null && last.close < swing.swingLow;
-
+    const trend = determineTrend(swingHighs, swingLows);
+    const lastCandle = getLast(highCandles);
     const reasons = [];
-    let score = 0;
-    const direction = biasInfo.bias;
 
-    if (direction === 'bullish') {
-        score += 1;
-        reasons.push('EMA bias bullish');
-    } else if (direction === 'bearish') {
-        score += 1;
-        reasons.push('EMA bias bearish');
-    }
-
-    if (sweep.bullish && direction === 'bullish') {
-        score += 1;
-        reasons.push('Liquidity sweep down');
-    }
-    if (sweep.bearish && direction === 'bearish') {
-        score += 1;
-        reasons.push('Liquidity sweep up');
+    if (trend === 'consolidation' || trend === 'unknown') {
+        return {
+            status: 'NO_TRADE',
+            bias: 'neutral',
+            reasons: ['No clear market structure'],
+            lastClose: lastCandle.close
+        };
     }
 
-    if (mssBullish && direction === 'bullish') {
-        score += 1;
-        reasons.push('Market structure shift up');
-    }
-    if (mssBearish && direction === 'bearish') {
-        score += 1;
-        reasons.push('Market structure shift down');
+    const lastSwingHigh = swingHighs[swingHighs.length - 1];
+    const prevSwingHigh = swingHighs[swingHighs.length - 2];
+    const lastSwingLow = swingLows[swingLows.length - 1];
+    const prevSwingLow = swingLows[swingLows.length - 2];
+
+    const indicationBullish =
+        trend === 'up' && lastCandle.close > lastSwingHigh.price;
+    const indicationBearish =
+        trend === 'down' && lastCandle.close < lastSwingLow.price;
+
+    if (!indicationBullish && !indicationBearish) {
+        return {
+            status: 'WAIT',
+            bias: trend === 'up' ? 'bullish' : 'bearish',
+            reasons: ['Waiting for indication'],
+            lastClose: lastCandle.close,
+            swingHigh: lastSwingHigh.price,
+            swingLow: lastSwingLow.price
+        };
     }
 
-    if (fvg && fvg.direction === direction) {
-        score += 1;
-        reasons.push('FVG aligns with bias');
+    const indicationDirection = indicationBullish ? 'bullish' : 'bearish';
+    const indicationLevel = indicationBullish
+        ? lastSwingHigh.price
+        : lastSwingLow.price;
+    const indicationIndex = indicationBullish
+        ? lastSwingHigh.index
+        : lastSwingLow.index;
+    const rangeSlice = getRangeSlice(highCandles, indicationIndex);
+    const impulseHigh = Math.max(...rangeSlice.map((c) => c.high));
+    const impulseLow = Math.min(...rangeSlice.map((c) => c.low));
+
+    let correctionComplete = false;
+    let retrace = null;
+    let correctionExtreme = null;
+    let correctionTarget = null;
+
+    if (indicationBullish) {
+        const range = impulseHigh - prevSwingLow.price;
+        retrace = range > 0 ? (impulseHigh - lastCandle.close) / range : null;
+        correctionComplete = retrace !== null && retrace >= options.correctionThreshold;
+        correctionExtreme = impulseLow;
+        correctionTarget = prevSwingLow.price;
+    } else {
+        const range = prevSwingHigh.price - impulseLow;
+        retrace = range > 0 ? (lastCandle.close - impulseLow) / range : null;
+        correctionComplete = retrace !== null && retrace >= options.correctionThreshold;
+        correctionExtreme = impulseHigh;
+        correctionTarget = prevSwingHigh.price;
     }
 
-    if (
-        rsi !== null &&
-        ((direction === 'bullish' && rsi >= options.rsiBull) ||
-            (direction === 'bearish' && rsi <= options.rsiBear))
-    ) {
-        score += 1;
-        reasons.push('RSI momentum confirmation');
+    if (!correctionComplete) {
+        return {
+            status: 'WAIT_CORRECTION',
+            bias: indicationDirection,
+            reasons: ['Indication detected, waiting for correction'],
+            indicationLevel,
+            retrace,
+            correctionTarget,
+            lastClose: lastCandle.close
+        };
     }
 
-    if (
-        macd &&
-        ((direction === 'bullish' && macd.hist > 0) ||
-            (direction === 'bearish' && macd.hist < 0))
-    ) {
-        score += 1;
-        reasons.push('MACD confirmation');
+    const entrySlice = entryCandles.slice(
+        Math.max(0, entryCandles.length - options.entryLookback)
+    );
+    const entryOffset = entryCandles.length - entrySlice.length;
+    const { highs: entryHighsRaw, lows: entryLowsRaw } = findSwings(
+        entrySlice,
+        options.entryPivot
+    );
+    const entryHighs = entryHighsRaw.map((h) => ({
+        index: h.index + entryOffset,
+        price: h.price
+    }));
+    const entryLows = entryLowsRaw.map((l) => ({
+        index: l.index + entryOffset,
+        price: l.price
+    }));
+    const entryLast = getLast(entryCandles);
+
+    const lastEntryHigh =
+        entryHighs.length > 0 ? entryHighs[entryHighs.length - 1].price : null;
+    const lastEntryLow =
+        entryLows.length > 0 ? entryLows[entryLows.length - 1].price : null;
+
+    const continuationBullish =
+        indicationBullish && lastEntryHigh !== null && entryLast.close > lastEntryHigh;
+    const continuationBearish =
+        indicationBearish && lastEntryLow !== null && entryLast.close < lastEntryLow;
+
+    if (!(continuationBullish || continuationBearish)) {
+        return {
+            status: 'WAIT_CONTINUATION',
+            bias: indicationDirection,
+            reasons: ['Correction complete, waiting for continuation'],
+            indicationLevel,
+            correctionExtreme,
+            retrace,
+            entryBreak: indicationBullish ? lastEntryHigh : lastEntryLow,
+            lastClose: entryLast.close
+        };
     }
 
-    const setup = score >= options.minScore ? direction : 'wait';
+    const status = continuationBullish ? 'BUY' : 'SELL';
+    const stopLoss = correctionExtreme;
+    const takeProfit = indicationLevel;
+
+    reasons.push('Continuation confirmed on entry timeframe');
 
     return {
-        bias: direction,
-        score,
-        setup,
+        status,
+        bias: indicationDirection,
         reasons,
-        sweep,
-        mss: { bullish: mssBullish, bearish: mssBearish },
-        fvg,
-        rsi,
-        macd,
-        vwap,
-        vwapDist,
-        heiken: heikenTrend,
-        lastClose: last.close
+        indicationLevel,
+        stopLoss,
+        takeProfit,
+        entryBreak: continuationBullish ? lastEntryHigh : lastEntryLow,
+        lastClose: entryLast.close
     };
 };
 

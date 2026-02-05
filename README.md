@@ -80,13 +80,14 @@ Key variables (see `.env.example`):
 - `POLYMARKET_DRY_RUN` - must be `false` to actually place orders
 
 ## Blofin perps integration
-The bot can scan Blofin perpetuals, compute ICC-style signals, and (when enabled)
-place **manual** orders. Trading is off by default.
+The bot scans Blofin perpetuals using the ICC (Indication → Correction → Continuation)
+workflow from the guide (price action only, no indicators). It produces phased signals
+and can place **manual** orders when enabled.
 
 Key variables (see `.env.example`):
 - `BLOFIN_API_KEY`, `BLOFIN_API_SECRET`, `BLOFIN_API_PASSPHRASE`
 - `BLOFIN_INSTRUMENTS` - comma-separated perps watchlist
-- `BLOFIN_TIMEFRAME` - candle timeframe for scans
+- `BLOFIN_HIGH_TIMEFRAME` / `BLOFIN_ENTRY_TIMEFRAME` - ICC timeframes
 - `BLOFIN_ALLOW_TRADING` - must be `true` to allow manual orders
 - `BLOFIN_DRY_RUN` - must be `false` to actually place orders
 

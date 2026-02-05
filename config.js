@@ -118,8 +118,10 @@ const config = {
                 'BTC-USDT',
                 'ETH-USDT'
             ]),
-            timeframe: process.env.BLOFIN_TIMEFRAME || '15m',
-            candleLimit: parseNumber(process.env.BLOFIN_CANDLE_LIMIT, 200),
+            highTimeframe: process.env.BLOFIN_HIGH_TIMEFRAME || '1H',
+            entryTimeframe: process.env.BLOFIN_ENTRY_TIMEFRAME || '15m',
+            highCandleLimit: parseNumber(process.env.BLOFIN_HIGH_CANDLE_LIMIT, 200),
+            entryCandleLimit: parseNumber(process.env.BLOFIN_ENTRY_CANDLE_LIMIT, 200),
             scanTop: parseNumber(process.env.BLOFIN_SCAN_TOP, 5),
             minVolume24h: parseNumber(process.env.BLOFIN_MIN_VOL_24H, 0),
             allowTrading: process.env.BLOFIN_ALLOW_TRADING === 'true',
@@ -130,33 +132,30 @@ const config = {
             positionMode:
                 process.env.BLOFIN_POSITION_MODE || 'net_mode',
             strategy: {
-                minCandles: parseNumber(
-                    process.env.BLOFIN_ICC_MIN_CANDLES,
+                minCandles: parseNumber(process.env.BLOFIN_ICC_MIN_CANDLES, 120),
+                entryMinCandles: parseNumber(
+                    process.env.BLOFIN_ICC_ENTRY_MIN_CANDLES,
+                    120
+                ),
+                swingLookback: parseNumber(
+                    process.env.BLOFIN_ICC_SWING_LOOKBACK,
+                    160
+                ),
+                entryLookback: parseNumber(
+                    process.env.BLOFIN_ICC_ENTRY_LOOKBACK,
                     80
                 ),
-                minScore: parseNumber(process.env.BLOFIN_ICC_MIN_SCORE, 3),
-                emaFast: parseNumber(process.env.BLOFIN_ICC_EMA_FAST, 50),
-                emaSlow: parseNumber(process.env.BLOFIN_ICC_EMA_SLOW, 200),
-                sweepLookback: parseNumber(
-                    process.env.BLOFIN_ICC_SWEEP_LOOKBACK,
-                    20
+                swingPivot: parseNumber(
+                    process.env.BLOFIN_ICC_SWING_PIVOT,
+                    2
                 ),
-                mssLookback: parseNumber(
-                    process.env.BLOFIN_ICC_MSS_LOOKBACK,
-                    30
+                entryPivot: parseNumber(
+                    process.env.BLOFIN_ICC_ENTRY_PIVOT,
+                    2
                 ),
-                fvgLookback: parseNumber(
-                    process.env.BLOFIN_ICC_FVG_LOOKBACK,
-                    10
-                ),
-                rsiPeriod: parseNumber(process.env.BLOFIN_ICC_RSI_PERIOD, 14),
-                rsiBull: parseNumber(process.env.BLOFIN_ICC_RSI_BULL, 55),
-                rsiBear: parseNumber(process.env.BLOFIN_ICC_RSI_BEAR, 45),
-                macdFast: parseNumber(process.env.BLOFIN_ICC_MACD_FAST, 12),
-                macdSlow: parseNumber(process.env.BLOFIN_ICC_MACD_SLOW, 26),
-                macdSignal: parseNumber(
-                    process.env.BLOFIN_ICC_MACD_SIGNAL,
-                    9
+                correctionThreshold: parseNumber(
+                    process.env.BLOFIN_ICC_CORR_THRESHOLD,
+                    0.382
                 )
             }
         }
