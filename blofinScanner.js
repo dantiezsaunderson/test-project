@@ -51,7 +51,7 @@ const selectInstruments = (instruments, tickers, settings) => {
 };
 
 const fetchSignals = async () => {
-    const settings = config.blofin;
+    const settings = config.markets.blofin;
     const [instruments, tickers] = await Promise.all([
         blofinClient.fetchInstruments(settings.instType),
         blofinClient.fetchTickers()

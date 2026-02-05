@@ -22,7 +22,9 @@ const buildQuery = (params = {}) => {
 };
 
 const getBaseUrl = () =>
-    config.blofin.useDemo ? config.blofin.demoBaseUrl : config.blofin.baseUrl;
+    config.markets.blofin.useDemo
+        ? config.markets.blofin.demoBaseUrl
+        : config.markets.blofin.baseUrl;
 
 const signRequest = ({ method, requestPath, query, body, apiKey, apiSecret, passphrase }) => {
     const timestamp = Date.now().toString();
@@ -55,9 +57,9 @@ const request = async ({ method, path, params, auth }) => {
 
     const headers = {};
     if (auth) {
-        const apiKey = config.blofin.apiKey;
-        const apiSecret = config.blofin.apiSecret;
-        const passphrase = config.blofin.apiPassphrase;
+        const apiKey = config.markets.blofin.apiKey;
+        const apiSecret = config.markets.blofin.apiSecret;
+        const passphrase = config.markets.blofin.apiPassphrase;
         if (!apiKey || !apiSecret || !passphrase) {
             throw new Error('Missing Blofin API credentials.');
         }

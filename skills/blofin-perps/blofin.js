@@ -79,10 +79,10 @@ const showBalance = async () => {
 };
 
 const placeOrder = async (options) => {
-    if (!config.blofin.allowTrading) {
+    if (!config.markets.blofin.allowTrading) {
         throw new Error('Trading disabled. Set BLOFIN_ALLOW_TRADING=true.');
     }
-    if (config.blofin.dryRun) {
+    if (config.markets.blofin.dryRun) {
         throw new Error('BLOFIN_DRY_RUN=true. Disable to place orders.');
     }
     if (!options.flags.has('confirm')) {
@@ -110,15 +110,17 @@ const placeOrder = async (options) => {
     if (orderType === 'limit' && (!Number.isFinite(price) || price <= 0)) {
         throw new Error('Limit orders require --price.');
     }
-    if (size > config.blofin.maxOrderUsdt) {
-        throw new Error(`Size exceeds max order size (${config.blofin.maxOrderUsdt}).`);
+    if (size > config.markets.blofin.maxOrderUsdt) {
+        throw new Error(
+            `Size exceeds max order size (${config.markets.blofin.maxOrderUsdt}).`
+        );
     }
 
-    if (config.blofin.leverage) {
+    if (config.markets.blofin.leverage) {
         await blofinClient.setLeverage({
             instId,
-            leverage: config.blofin.leverage,
-            marginMode: config.blofin.marginMode
+            leverage: config.markets.blofin.leverage,
+            marginMode: config.markets.blofin.marginMode
         });
     }
 
@@ -128,9 +130,9 @@ const placeOrder = async (options) => {
         orderType,
         size,
         price,
-        marginMode: config.blofin.marginMode,
+        marginMode: config.markets.blofin.marginMode,
         positionSide:
-            config.blofin.positionMode === 'long_short_mode'
+            config.markets.blofin.positionMode === 'long_short_mode'
                 ? side === 'buy'
                     ? 'long'
                     : 'short'
