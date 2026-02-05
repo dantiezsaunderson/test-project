@@ -140,6 +140,7 @@ Example:
 - `skills/passive-income-lab` - generate passive income opportunities and plans
 - `skills/market-edge-lab` - formulate and test edge hypotheses
 - `skills/moltron-skill-creator` - Moltron skill creator/evolution loop
+- `skills/polymarket-btc-15m-assistant` - Polymarket BTC 15m console assistant
 
 Example:
 - `node /absolute/path/to/this-repo/skills/market-signals/market-signals.js --limit 10`
@@ -149,6 +150,12 @@ This repo includes the `moltron-skill-creator` skill from
 https://github.com/adridder/moltron. To activate it:
 - Install prerequisites (Node 22+, git, SmythOS CLI).
 - In OpenClaw, send `@moltron init` to prepare the environment.
+
+### Polymarket BTC 15m assistant
+This skill wraps the upstream repo and installs it locally on demand:
+- `node /absolute/path/to/this-repo/skills/polymarket-btc-15m-assistant/btc15m.js status`
+- `node /absolute/path/to/this-repo/skills/polymarket-btc-15m-assistant/btc15m.js install`
+- `node /absolute/path/to/this-repo/skills/polymarket-btc-15m-assistant/btc15m.js start`
 
 ## Notes
 - This bot is for research and alerting only.
