@@ -115,6 +115,9 @@ Key variables (see `.env.example`):
 - `BLOFIN_AUTO_ORDER_TYPE` - `market` only
 - `BLOFIN_PERF_CANDLE_LIMIT` - candles used for performance evaluation window
 - `BLOFIN_ICC_MIN_DISPLACEMENT_PCT` - minimum displacement for the indication (0 disables)
+- `BLOFIN_ICC_STRUCTURE_LOOKBACK` - candles for structure (recent sessions)
+- `BLOFIN_ICC_STRUCTURE_SWING_COUNT` - swings to confirm trend (default 3)
+- `BLOFIN_ICC_MIN_SWING_PCT` - minimum swing separation (0 disables)
 - `BLOFIN_ICC_LIQUIDITY_TOL_PCT` - cluster tolerance for liquidity pools (0 disables)
 - `BLOFIN_ICC_LIQUIDITY_MIN_TOUCHES` - touches required to form a pool
 - `BLOFIN_ICC_REQUIRE_LIQUIDITY_ZONE` - require correction into liquidity pool

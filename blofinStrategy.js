@@ -26,19 +26,47 @@ const findSwings = (candles, pivot) => {
     return { highs, lows };
 };
 
-const determineTrend = (highs, lows) => {
+const determineTrend = (highs, lows, window) => {
     if (highs.length < 2 || lows.length < 2) {
         return 'unknown';
     }
-    const lastHigh = highs[highs.length - 1].price;
-    const prevHigh = highs[highs.length - 2].price;
-    const lastLow = lows[lows.length - 1].price;
-    const prevLow = lows[lows.length - 2].price;
-
-    if (lastHigh > prevHigh && lastLow > prevLow) {
+    const count = Math.max(
+        2,
+        Math.min(window || 2, highs.length, lows.length)
+    );
+    const highsSlice = highs.slice(-count);
+    const lowsSlice = lows.slice(-count);
+    const highsUp = highsSlice.every(
+        (point, index) =>
+            index === 0 || point.price > highsSlice[index - 1].price
+    );
+    const lowsUp = lowsSlice.every(
+        (point, index) =>
+            index === 0 || point.price > lowsSlice[index - 1].price
+    );
+    if (highsUp && lowsUp) {
         return 'up';
     }
-    if (lastHigh < prevHigh && lastLow < prevLow) {
+    const highsDown = highsSlice.every(
+        (point, index) =>
+            index === 0 || point.price < highsSlice[index - 1].price
+    );
+    const lowsDown = lowsSlice.every(
+        (point, index) =>
+            index === 0 || point.price < lowsSlice[index - 1].price
+    );
+    if (highsDown && lowsDown) {
+        return 'down';
+    }
+
+    const firstHigh = highsSlice[0].price;
+    const lastHigh = highsSlice[highsSlice.length - 1].price;
+    const firstLow = lowsSlice[0].price;
+    const lastLow = lowsSlice[lowsSlice.length - 1].price;
+    if (lastHigh > firstHigh && lastLow > firstLow) {
+        return 'up';
+    }
+    if (lastHigh < firstHigh && lastLow < firstLow) {
         return 'down';
     }
     return 'consolidation';
@@ -46,6 +74,28 @@ const determineTrend = (highs, lows) => {
 
 const getRangeSlice = (candles, startIndex) =>
     candles.slice(Math.max(0, startIndex));
+
+const filterSwings = (swings, minPct) => {
+    if (!Array.isArray(swings) || swings.length === 0) {
+        return [];
+    }
+    if (!Number.isFinite(minPct) || minPct <= 0) {
+        return swings;
+    }
+    const filtered = [];
+    swings.forEach((swing) => {
+        if (!filtered.length) {
+            filtered.push(swing);
+            return;
+        }
+        const last = filtered[filtered.length - 1];
+        const distance = Math.abs(swing.price - last.price) / (last.price || 1);
+        if (distance >= minPct) {
+            filtered.push(swing);
+        }
+    });
+    return filtered;
+};
 
 const normalizeSplits = (splits, targetCount) => {
     if (!targetCount) {
@@ -283,8 +333,10 @@ const buildIccSignal = (highCandles, entryCandles, options) => {
         return null;
     }
 
+    const structureLookback =
+        options.structureLookback || options.swingLookback;
     const highSlice = highCandles.slice(
-        Math.max(0, highCandles.length - options.swingLookback)
+        Math.max(0, highCandles.length - structureLookback)
     );
     const highOffset = highCandles.length - highSlice.length;
     const { highs, lows } = findSwings(highSlice, options.swingPivot);
@@ -297,7 +349,20 @@ const buildIccSignal = (highCandles, entryCandles, options) => {
         price: l.price
     }));
 
-    const trend = determineTrend(swingHighs, swingLows);
+    const filteredHighs = filterSwings(
+        swingHighs,
+        options.minSwingPct
+    );
+    const filteredLows = filterSwings(
+        swingLows,
+        options.minSwingPct
+    );
+
+    const trend = determineTrend(
+        filteredHighs,
+        filteredLows,
+        options.structureSwingCount
+    );
     const lastCandle = getLast(highCandles);
     const reasons = [];
 
@@ -310,10 +375,19 @@ const buildIccSignal = (highCandles, entryCandles, options) => {
         };
     }
 
-    const lastSwingHigh = swingHighs[swingHighs.length - 1];
-    const prevSwingHigh = swingHighs[swingHighs.length - 2];
-    const lastSwingLow = swingLows[swingLows.length - 1];
-    const prevSwingLow = swingLows[swingLows.length - 2];
+    if (filteredHighs.length < 2 || filteredLows.length < 2) {
+        return {
+            status: 'NO_TRADE',
+            bias: 'neutral',
+            reasons: ['Insufficient swing structure'],
+            lastClose: lastCandle.close
+        };
+    }
+
+    const lastSwingHigh = filteredHighs[filteredHighs.length - 1];
+    const prevSwingHigh = filteredHighs[filteredHighs.length - 2];
+    const lastSwingLow = filteredLows[filteredLows.length - 1];
+    const prevSwingLow = filteredLows[filteredLows.length - 2];
 
     const indicationBullish =
         trend === 'up' && lastCandle.close > lastSwingHigh.price;
@@ -468,8 +542,8 @@ const buildIccSignal = (highCandles, entryCandles, options) => {
         direction: indicationDirection,
         indicationLevel,
         correctionExtreme,
-        swingHighs,
-        swingLows,
+        swingHighs: filteredHighs,
+        swingLows: filteredLows,
         options
     });
     const takeProfit =
