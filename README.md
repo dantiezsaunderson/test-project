@@ -92,7 +92,8 @@ Key variables (see `.env.example`):
 The bot scans Blofin perpetuals using the ICC (Indication → Correction → Continuation)
 workflow from the guide (price action only, no indicators). It produces phased signals
 and can place **manual** orders when enabled. An optional auto-trader can act on
-BUY/SELL phases with additional guardrails.
+BUY/SELL phases with additional guardrails. Targets can be multi-stage (TP1/TP2)
+and anchored to detected liquidity pools when available.
 
 Key variables (see `.env.example`):
 - `BLOFIN_API_KEY`, `BLOFIN_API_SECRET`, `BLOFIN_API_PASSPHRASE`
@@ -114,6 +115,11 @@ Key variables (see `.env.example`):
 - `BLOFIN_AUTO_ORDER_TYPE` - `market` only
 - `BLOFIN_PERF_CANDLE_LIMIT` - candles used for performance evaluation window
 - `BLOFIN_ICC_MIN_DISPLACEMENT_PCT` - minimum displacement for the indication (0 disables)
+- `BLOFIN_ICC_LIQUIDITY_TOL_PCT` - cluster tolerance for liquidity pools (0 disables)
+- `BLOFIN_ICC_LIQUIDITY_MIN_TOUCHES` - touches required to form a pool
+- `BLOFIN_ICC_REQUIRE_LIQUIDITY_ZONE` - require correction into liquidity pool
+- `BLOFIN_ICC_TARGET_R1` / `BLOFIN_ICC_TARGET_R2` - extension targets when no pool
+- `BLOFIN_ICC_TP_SPLITS` - partials (e.g. `0.5,0.5`)
 
 To run a scan:
 ```bash
@@ -147,6 +153,8 @@ Performance notes:
   if both stop and target touch within the same candle (conservative).
 - Sessions are bucketed in UTC as: Asia (00:00-07:00), London (07:00-13:00),
   London/NY overlap (13:00-16:00), NY (16:00-22:00).
+- Multi-target performance assumes partial exits at each TP split and stops the
+  remaining size if the stop is hit.
 
 To derive L2 API credentials, use the OpenClaw skill or run:
 ```bash

@@ -47,6 +47,189 @@ const determineTrend = (highs, lows) => {
 const getRangeSlice = (candles, startIndex) =>
     candles.slice(Math.max(0, startIndex));
 
+const normalizeSplits = (splits, targetCount) => {
+    if (!targetCount) {
+        return [];
+    }
+    if (!Array.isArray(splits) || splits.length !== targetCount) {
+        return Array(targetCount).fill(1 / targetCount);
+    }
+    const sum = splits.reduce((acc, value) => acc + value, 0);
+    if (!(sum > 0)) {
+        return Array(targetCount).fill(1 / targetCount);
+    }
+    return splits.map((value) => value / sum);
+};
+
+const buildLiquidityPools = (levels, tolerancePct, minTouches) => {
+    if (!Array.isArray(levels) || levels.length === 0) {
+        return [];
+    }
+    if (!(tolerancePct > 0) || !(minTouches > 1)) {
+        return [];
+    }
+    const sorted = [...levels].sort((a, b) => a - b);
+    const pools = [];
+    let bucket = [sorted[0]];
+    for (let i = 1; i < sorted.length; i += 1) {
+        const current = sorted[i];
+        const last = bucket[bucket.length - 1];
+        const within =
+            Math.abs(current - last) / (last || 1) <= tolerancePct;
+        if (within) {
+            bucket.push(current);
+        } else {
+            if (bucket.length >= minTouches) {
+                const avg =
+                    bucket.reduce((acc, value) => acc + value, 0) /
+                    bucket.length;
+                pools.push({ price: avg, touches: bucket.length });
+            }
+            bucket = [current];
+        }
+    }
+    if (bucket.length >= minTouches) {
+        const avg = bucket.reduce((acc, value) => acc + value, 0) / bucket.length;
+        pools.push({ price: avg, touches: bucket.length });
+    }
+    return pools;
+};
+
+const findNearestLiquidity = (pools, price, tolerancePct) => {
+    if (!pools.length || !Number.isFinite(price)) {
+        return null;
+    }
+    let nearest = null;
+    pools.forEach((pool) => {
+        const distancePct = Math.abs(price - pool.price) / (pool.price || 1);
+        if (!nearest || distancePct < nearest.distancePct) {
+            nearest = {
+                level: pool.price,
+                touches: pool.touches,
+                distancePct,
+                withinZone:
+                    Number.isFinite(tolerancePct) && tolerancePct > 0
+                        ? distancePct <= tolerancePct
+                        : false
+            };
+        }
+    });
+    return nearest;
+};
+
+const buildTargets = ({
+    direction,
+    indicationLevel,
+    correctionExtreme,
+    swingHighs,
+    swingLows,
+    options
+}) => {
+    const riskDistance = Math.abs(indicationLevel - correctionExtreme);
+    const dir = direction === 'bullish' ? 1 : -1;
+    const highLevels = swingHighs.map((swing) => swing.price);
+    const lowLevels = swingLows.map((swing) => swing.price);
+    const liquidityPools = {
+        highs: buildLiquidityPools(
+            highLevels,
+            options.liquidityTolerancePct,
+            options.liquidityMinTouches
+        ),
+        lows: buildLiquidityPools(
+            lowLevels,
+            options.liquidityTolerancePct,
+            options.liquidityMinTouches
+        )
+    };
+
+    const poolLevels =
+        direction === 'bullish'
+            ? liquidityPools.highs.map((pool) => pool.price)
+            : liquidityPools.lows.map((pool) => pool.price);
+    const swingLevels = direction === 'bullish' ? highLevels : lowLevels;
+    const candidates = (poolLevels.length ? poolLevels : swingLevels)
+        .filter((level) =>
+            direction === 'bullish'
+                ? level > indicationLevel
+                : level < indicationLevel
+        )
+        .sort((a, b) => (direction === 'bullish' ? a - b : b - a));
+
+    const targets = [];
+    const metadata = [];
+    if (candidates.length) {
+        targets.push(candidates[0]);
+        metadata.push({
+            level: candidates[0],
+            source: poolLevels.length ? 'liquidity_pool' : 'swing'
+        });
+    }
+    if (!targets.length && riskDistance > 0) {
+        const level =
+            indicationLevel + dir * riskDistance * (options.targetR1 || 1);
+        targets.push(level);
+        metadata.push({ level, source: 'extension_r1' });
+    }
+    if (candidates.length > 1) {
+        targets.push(candidates[1]);
+        metadata.push({
+            level: candidates[1],
+            source: poolLevels.length ? 'liquidity_pool' : 'swing'
+        });
+    } else if (riskDistance > 0) {
+        const level =
+            indicationLevel + dir * riskDistance * (options.targetR2 || 2);
+        targets.push(level);
+        metadata.push({ level, source: 'extension_r2' });
+    }
+
+    const uniqueTargets = [];
+    const uniqueMeta = [];
+    targets.forEach((level, index) => {
+        if (!Number.isFinite(level)) {
+            return;
+        }
+        if (
+            direction === 'bullish' &&
+            level <= indicationLevel
+        ) {
+            return;
+        }
+        if (
+            direction === 'bearish' &&
+            level >= indicationLevel
+        ) {
+            return;
+        }
+        if (uniqueTargets.some((existing) => Math.abs(existing - level) < 1e-8)) {
+            return;
+        }
+        uniqueTargets.push(level);
+        uniqueMeta.push(metadata[index]);
+    });
+
+    const takeProfitSplits = normalizeSplits(
+        options.takeProfitSplits,
+        uniqueTargets.length
+    );
+
+    const correctionPools =
+        direction === 'bullish' ? liquidityPools.lows : liquidityPools.highs;
+    const correctionLiquidity = findNearestLiquidity(
+        correctionPools,
+        correctionExtreme,
+        options.liquidityTolerancePct
+    );
+
+    return {
+        takeProfitLevels: uniqueTargets,
+        takeProfitSplits,
+        liquidityPools,
+        liquidityTargets: uniqueMeta,
+        correctionLiquidity
+    };
+};
+
 const buildIccSignal = (highCandles, entryCandles, options) => {
     if (
         !Array.isArray(highCandles) ||
@@ -209,9 +392,37 @@ const buildIccSignal = (highCandles, entryCandles, options) => {
 
     const status = continuationBullish ? 'BUY' : 'SELL';
     const stopLoss = correctionExtreme;
-    const takeProfit = indicationLevel;
+    const targetPack = buildTargets({
+        direction: indicationDirection,
+        indicationLevel,
+        correctionExtreme,
+        swingHighs,
+        swingLows,
+        options
+    });
+    const takeProfit =
+        targetPack.takeProfitLevels && targetPack.takeProfitLevels.length
+            ? targetPack.takeProfitLevels[0]
+            : indicationLevel;
 
     reasons.push('Continuation confirmed on entry timeframe');
+
+    if (
+        options.requireLiquidityZone &&
+        targetPack.correctionLiquidity &&
+        !targetPack.correctionLiquidity.withinZone
+    ) {
+        return {
+            status: 'WAIT_CONTINUATION',
+            bias: indicationDirection,
+            reasons: ['Correction outside liquidity zone'],
+            indicationLevel,
+            correctionExtreme,
+            correctionLiquidity: targetPack.correctionLiquidity,
+            entryBreak: continuationBullish ? lastEntryHigh : lastEntryLow,
+            lastClose: entryLast.close
+        };
+    }
 
     return {
         status,
@@ -220,6 +431,11 @@ const buildIccSignal = (highCandles, entryCandles, options) => {
         indicationLevel,
         stopLoss,
         takeProfit,
+        takeProfitLevels: targetPack.takeProfitLevels,
+        takeProfitSplits: targetPack.takeProfitSplits,
+        liquidityPools: targetPack.liquidityPools,
+        liquidityTargets: targetPack.liquidityTargets,
+        correctionLiquidity: targetPack.correctionLiquidity,
         entryBreak: continuationBullish ? lastEntryHigh : lastEntryLow,
         lastClose: entryLast.close
     };

@@ -96,14 +96,64 @@ const computeSharpe = (values) => {
     return (mean / std) * Math.sqrt(values.length);
 };
 
+const normalizeSplits = (splits, count) => {
+    if (!count) {
+        return [];
+    }
+    if (!Array.isArray(splits) || splits.length !== count) {
+        return Array(count).fill(1 / count);
+    }
+    const total = splits.reduce((acc, value) => acc + value, 0);
+    if (!(total > 0)) {
+        return Array(count).fill(1 / count);
+    }
+    return splits.map((value) => value / total);
+};
+
+const buildTargetPlan = (trade, entryPrice, isBuy) => {
+    let levels = [];
+    if (Array.isArray(trade.takeProfitLevels) && trade.takeProfitLevels.length) {
+        levels = trade.takeProfitLevels;
+    } else if (
+        Array.isArray(trade.signal?.takeProfitLevels) &&
+        trade.signal.takeProfitLevels.length
+    ) {
+        levels = trade.signal.takeProfitLevels;
+    } else {
+        const fallback = toNumber(
+            trade.takeProfit ?? trade.signal?.takeProfit,
+            null
+        );
+        if (Number.isFinite(fallback)) {
+            levels = [fallback];
+        }
+    }
+
+    const filtered = levels
+        .map((level) => toNumber(level, null))
+        .filter((level) => Number.isFinite(level))
+        .filter((level) => (isBuy ? level > entryPrice : level < entryPrice))
+        .sort((a, b) => (isBuy ? a - b : b - a));
+
+    if (!filtered.length) {
+        return [];
+    }
+
+    const splits = Array.isArray(trade.takeProfitSplits)
+        ? trade.takeProfitSplits
+        : trade.signal?.takeProfitSplits;
+    const normalized = normalizeSplits(splits, filtered.length);
+    return filtered.map((level, index) => ({
+        level,
+        split: normalized[index],
+        hit: false
+    }));
+};
+
 const evaluateTrade = (trade, candles) => {
     const entryPrice = toNumber(trade.price, null);
     const stopLoss = toNumber(
         trade.stopLoss ?? trade.signal?.stopLoss,
-        null
-    );
-    const takeProfit = toNumber(
-        trade.takeProfit ?? trade.signal?.takeProfit,
         null
     );
     const tradeTime = new Date(trade.timestamp || '').getTime();
@@ -113,8 +163,8 @@ const evaluateTrade = (trade, candles) => {
     if (!Number.isFinite(entryPrice)) {
         return { outcome: 'invalid', reason: 'missing_entry_price' };
     }
-    if (!Number.isFinite(stopLoss) || !Number.isFinite(takeProfit)) {
-        return { outcome: 'invalid', reason: 'missing_levels' };
+    if (!Number.isFinite(stopLoss)) {
+        return { outcome: 'invalid', reason: 'missing_stop_loss' };
     }
     if (!trade.side || !['buy', 'sell'].includes(trade.side)) {
         return { outcome: 'invalid', reason: 'missing_side' };
@@ -125,11 +175,9 @@ const evaluateTrade = (trade, candles) => {
     if (!(risk > 0)) {
         return { outcome: 'invalid', reason: 'invalid_stop_distance' };
     }
-    if (isBuy && takeProfit <= entryPrice) {
-        return { outcome: 'invalid', reason: 'invalid_take_profit' };
-    }
-    if (!isBuy && takeProfit >= entryPrice) {
-        return { outcome: 'invalid', reason: 'invalid_take_profit' };
+    const targetPlan = buildTargetPlan(trade, entryPrice, isBuy);
+    if (!targetPlan.length) {
+        return { outcome: 'invalid', reason: 'missing_targets' };
     }
 
     const timeline = candles.filter((candle) => candle.ts >= tradeTime);
@@ -137,40 +185,73 @@ const evaluateTrade = (trade, candles) => {
         return { outcome: 'insufficient_data', reason: 'no_future_candles' };
     }
 
+    let remaining = 1;
+    let totalR = 0;
+    const partials = [];
+
     for (const candle of timeline) {
         const stopHit = isBuy
             ? candle.low <= stopLoss
             : candle.high >= stopLoss;
-        const tpHit = isBuy
-            ? candle.high >= takeProfit
-            : candle.low <= takeProfit;
+        const targetHitInCandle = targetPlan.some((target) =>
+            isBuy ? candle.high >= target.level : candle.low <= target.level
+        );
 
-        if (stopHit && tpHit) {
-            return {
-                outcome: 'loss',
-                exitPrice: stopLoss,
-                exitTime: candle.ts,
-                exitReason: 'stop_and_target_same_candle',
-                rMultiple: -1
-            };
-        }
         if (stopHit) {
+            if (remaining > 0) {
+                totalR += -1 * remaining;
+            }
+            const outcome =
+                totalR > 0 ? 'win' : totalR < 0 ? 'loss' : 'breakeven';
             return {
-                outcome: 'loss',
+                outcome,
                 exitPrice: stopLoss,
                 exitTime: candle.ts,
-                exitReason: 'stop_hit',
-                rMultiple: -1
+                exitReason: targetHitInCandle
+                    ? 'stop_and_target_same_candle'
+                    : 'stop_hit',
+                rMultiple: totalR,
+                partials
             };
         }
-        if (tpHit) {
-            const reward = isBuy ? takeProfit - entryPrice : entryPrice - takeProfit;
+
+        for (const target of targetPlan) {
+            if (target.hit) {
+                continue;
+            }
+            const hit = isBuy
+                ? candle.high >= target.level
+                : candle.low <= target.level;
+            if (!hit) {
+                continue;
+            }
+            target.hit = true;
+            const reward = isBuy
+                ? target.level - entryPrice
+                : entryPrice - target.level;
+            const rMultiple = reward / risk;
+            const split = Math.min(target.split, remaining);
+            totalR += rMultiple * split;
+            remaining -= split;
+            partials.push({
+                level: target.level,
+                split,
+                rMultiple,
+                time: candle.ts
+            });
+        }
+
+        if (remaining <= 1e-6) {
+            const outcome =
+                totalR > 0 ? 'win' : totalR < 0 ? 'loss' : 'breakeven';
+            const lastTarget = partials[partials.length - 1];
             return {
-                outcome: 'win',
-                exitPrice: takeProfit,
-                exitTime: candle.ts,
-                exitReason: 'target_hit',
-                rMultiple: reward / risk
+                outcome,
+                exitPrice: lastTarget ? lastTarget.level : undefined,
+                exitTime: lastTarget ? lastTarget.time : candle.ts,
+                exitReason: 'all_targets_hit',
+                rMultiple: totalR,
+                partials
             };
         }
     }
@@ -182,7 +263,10 @@ const evaluateTrade = (trade, candles) => {
     return {
         outcome: 'open',
         exitReason: 'still_open',
+        rMultiple: totalR,
         unrealizedR: unrealized,
+        remainingFraction: remaining,
+        partials,
         lastPrice: last.close,
         lastTime: last.ts
     };
@@ -201,7 +285,17 @@ const formatSignal = (entry) => {
     if (entry.signal?.stopLoss) {
         levels.push(`SL ${entry.signal.stopLoss}`);
     }
-    if (entry.signal?.takeProfit) {
+    if (
+        Array.isArray(entry.signal?.takeProfitLevels) &&
+        entry.signal.takeProfitLevels.length
+    ) {
+        const preview = entry.signal.takeProfitLevels
+            .slice(0, 2)
+            .map((level) => Number(level).toFixed(2));
+        const suffix =
+            entry.signal.takeProfitLevels.length > 2 ? ' +' : '';
+        levels.push(`TPs ${preview.join(', ')}${suffix}`);
+    } else if (entry.signal?.takeProfit) {
         levels.push(`TP ${entry.signal.takeProfit}`);
     }
     const levelText = levels.length ? ` | ${levels.join(' / ')}` : '';
@@ -340,16 +434,16 @@ const reportAutoTrades = async (options) => {
         summary.totalNotional += Number.isFinite(notional) ? notional : 0;
         summary.totalRiskUsd += Number.isFinite(riskUsd) ? riskUsd : 0;
 
-        if (outcome === 'win' || outcome === 'loss') {
+        if (outcome === 'win' || outcome === 'loss' || outcome === 'breakeven') {
             summary.totalClosed += 1;
             closedTrades.push(trade);
             if (Number.isFinite(rMultiple)) {
                 rSeries.push(rMultiple);
                 summary.totalR += rMultiple;
-                if (rMultiple > 0) {
+                if (outcome === 'win') {
                     wins += 1;
                     grossWin += rMultiple;
-                } else {
+                } else if (outcome === 'loss') {
                     losses += 1;
                     grossLoss += Math.abs(rMultiple);
                 }

@@ -421,6 +421,15 @@ const runBlofinAutoTrade = async ({ signals, snapshot, reason } = {}) => {
             notional,
             stopLoss: Number.isFinite(stopLoss) ? stopLoss : undefined,
             takeProfit: Number.isFinite(takeProfit) ? takeProfit : undefined,
+            takeProfitLevels: Array.isArray(entry.signal?.takeProfitLevels)
+                ? entry.signal.takeProfitLevels
+                : undefined,
+            takeProfitSplits: Array.isArray(entry.signal?.takeProfitSplits)
+                ? entry.signal.takeProfitSplits
+                : undefined,
+            liquidityTargets: Array.isArray(entry.signal?.liquidityTargets)
+                ? entry.signal.liquidityTargets
+                : undefined,
             sizingMode,
             riskUsdTarget: riskUsdTarget || undefined,
             riskUsdActual: riskUsdActual || undefined,

@@ -15,6 +15,17 @@ const parseList = (value, fallback) => {
         .filter(Boolean);
 };
 
+const parseNumberList = (value, fallback) => {
+    if (!value) {
+        return fallback;
+    }
+    const list = value
+        .split(',')
+        .map((item) => Number(item.trim()))
+        .filter((item) => Number.isFinite(item));
+    return list.length ? list : fallback;
+};
+
 const config = {
     server: {
         port: parseNumber(process.env.PORT, 3000),
@@ -201,6 +212,22 @@ const config = {
                 minDisplacementPct: parseNumber(
                     process.env.BLOFIN_ICC_MIN_DISPLACEMENT_PCT,
                     0
+                ),
+                liquidityTolerancePct: parseNumber(
+                    process.env.BLOFIN_ICC_LIQUIDITY_TOL_PCT,
+                    0
+                ),
+                liquidityMinTouches: parseNumber(
+                    process.env.BLOFIN_ICC_LIQUIDITY_MIN_TOUCHES,
+                    2
+                ),
+                requireLiquidityZone:
+                    process.env.BLOFIN_ICC_REQUIRE_LIQUIDITY_ZONE === 'true',
+                targetR1: parseNumber(process.env.BLOFIN_ICC_TARGET_R1, 1),
+                targetR2: parseNumber(process.env.BLOFIN_ICC_TARGET_R2, 2),
+                takeProfitSplits: parseNumberList(
+                    process.env.BLOFIN_ICC_TP_SPLITS,
+                    [0.5, 0.5]
                 )
             }
         }
