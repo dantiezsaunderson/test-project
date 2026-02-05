@@ -32,10 +32,11 @@ const signRequest = ({ method, requestPath, query, body, apiKey, apiSecret, pass
     const requestWithQuery = query ? `${requestPath}?${query}` : requestPath;
     const signBody = body || '';
     const payload = `${requestWithQuery}${method}${timestamp}${nonce}${signBody}`;
-    const signature = crypto
+    const hmacHex = crypto
         .createHmac('sha256', apiSecret)
         .update(payload)
-        .digest('base64');
+        .digest('hex');
+    const signature = Buffer.from(hmacHex).toString('base64');
 
     return {
         headers: {
