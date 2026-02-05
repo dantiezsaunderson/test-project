@@ -139,9 +139,16 @@ Example:
 - `skills/market-signals` - offline summary of crypto/forex/Polymarket signals
 - `skills/passive-income-lab` - generate passive income opportunities and plans
 - `skills/market-edge-lab` - formulate and test edge hypotheses
+- `skills/moltron-skill-creator` - Moltron skill creator/evolution loop
 
 Example:
 - `node /absolute/path/to/this-repo/skills/market-signals/market-signals.js --limit 10`
+
+### Moltron setup notes
+This repo includes the `moltron-skill-creator` skill from
+https://github.com/adridder/moltron. To activate it:
+- Install prerequisites (Node 22+, git, SmythOS CLI).
+- In OpenClaw, send `@moltron init` to prepare the environment.
 
 ## Notes
 - This bot is for research and alerting only.
