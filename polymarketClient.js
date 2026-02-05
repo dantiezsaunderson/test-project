@@ -9,9 +9,158 @@ const normalizeNumber = (value) => {
     return Number.isFinite(parsed) ? parsed : 0;
 };
 
+const toNumber = (value) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+};
+
 const normalizeSide = (value) => {
     const side = String(value || 'YES').toUpperCase();
     return side === 'NO' ? 'NO' : 'YES';
+};
+
+const extractNextData = (html) => {
+    const marker = 'id="__NEXT_DATA__"';
+    const idx = html.indexOf(marker);
+    if (idx === -1) {
+        throw new Error('Polymarket page payload not found.');
+    }
+    const start = html.indexOf('>', idx);
+    const end = html.indexOf('</script>', start);
+    if (start === -1 || end === -1) {
+        throw new Error('Polymarket page payload incomplete.');
+    }
+    const json = html.slice(start + 1, end);
+    return JSON.parse(json);
+};
+
+const collectWebResults = (nextData) => {
+    const queries = nextData?.props?.pageProps?.dehydratedState?.queries || [];
+    const results = [];
+    queries.forEach((query) => {
+        const pages = query?.state?.data?.pages;
+        if (!Array.isArray(pages)) {
+            return;
+        }
+        pages.forEach((page) => {
+            if (Array.isArray(page.results)) {
+                results.push(...page.results);
+            }
+        });
+    });
+    return results;
+};
+
+const normalizeOutcomeMap = (outcomes, outcomePrices) => {
+    const map = {};
+    outcomes.forEach((outcome, index) => {
+        const price = toNumber(outcomePrices[index]);
+        if (outcome && price !== null) {
+            map[String(outcome).toUpperCase()] = price;
+        }
+    });
+    return map;
+};
+
+const buildMarketUrl = (slug) =>
+    slug ? `https://polymarket.com/market/${slug}` : null;
+
+const sanitizeWebMarket = (market, event) => {
+    const outcomes = Array.isArray(market.outcomes) ? market.outcomes : [];
+    const outcomePrices = Array.isArray(market.outcomePrices)
+        ? market.outcomePrices
+        : [];
+    const outcomeMap = normalizeOutcomeMap(outcomes, outcomePrices);
+
+    const liquidity = normalizeNumber(market.liquidityNum ?? market.liquidity);
+    const volume24hr = normalizeNumber(
+        market.volume24hr ?? market.volume24hrClob ?? 0
+    );
+    const volume = normalizeNumber(market.volumeNum ?? market.volume);
+    const volume1wk = normalizeNumber(market.volume1wk ?? market.volume1wkClob ?? 0);
+    const activityVolume = volume24hr || volume;
+    const bestBid = toNumber(market.bestBid);
+    const bestAsk = toNumber(market.bestAsk);
+    const spread =
+        toNumber(market.spread) ??
+        (bestBid !== null && bestAsk !== null
+            ? Math.max(bestAsk - bestBid, 0)
+            : null);
+
+    return {
+        id: market.id || market.conditionId || market.questionID || market.slug,
+        slug: market.slug || market.ticker || null,
+        question:
+            market.question || market.title || event?.title || event?.question || '',
+        eventTitle: event?.title || event?.question || null,
+        eventSlug: event?.slug || null,
+        url: buildMarketUrl(market.slug || market.ticker || null),
+        liquidity,
+        volume,
+        volume24hr,
+        volume1wk,
+        activityVolume,
+        spread,
+        bestBid,
+        bestAsk,
+        lastTradePrice: toNumber(market.lastTradePrice),
+        oneHourPriceChange: toNumber(market.oneHourPriceChange),
+        oneDayPriceChange: toNumber(market.oneDayPriceChange),
+        endDate: market.endDate || market.end_date || event?.endDate || null,
+        outcomes,
+        outcomePrices: outcomePrices.map((price) => normalizeNumber(price)),
+        outcomeMap
+    };
+};
+
+const collectWebMarkets = (results, maxMarkets) => {
+    const map = new Map();
+    results.forEach((event) => {
+        const markets = Array.isArray(event.markets) ? event.markets : [event];
+        markets.forEach((market) => {
+            const id = market.id || market.conditionId || market.questionID || market.slug;
+            if (!id || map.has(id)) {
+                return;
+            }
+            map.set(id, sanitizeWebMarket(market, event));
+        });
+    });
+    const list = Array.from(map.values());
+    if (Number.isFinite(maxMarkets) && list.length > maxMarkets) {
+        return list.slice(0, maxMarkets);
+    }
+    return list;
+};
+
+const scoreWebMarket = (market) => {
+    const liquidityScore = Math.log10(1 + market.liquidity);
+    const volumeScore = Math.log10(1 + market.activityVolume);
+    const spreadPenalty = Number.isFinite(market.spread) ? market.spread : 0.05;
+    const momentum =
+        Math.abs(market.oneDayPriceChange ?? 0) +
+        Math.abs(market.oneHourPriceChange ?? 0);
+    return liquidityScore * 2 + volumeScore * 1.5 - spreadPenalty * 50 + momentum * 5;
+};
+
+const tagWebMarket = (market, thresholds) => {
+    const tags = [];
+    if (
+        Number.isFinite(market.spread) &&
+        market.spread <= thresholds.spreadAlert
+    ) {
+        tags.push('tight-spread');
+    }
+    if (market.activityVolume >= thresholds.minVolume * 2) {
+        tags.push('high-volume');
+    }
+    if (market.liquidity >= thresholds.minLiquidity * 2) {
+        tags.push('deep-liquidity');
+    }
+    const dayMove = Math.abs(market.oneDayPriceChange ?? 0);
+    if (dayMove >= thresholds.priceMoveAlert) {
+        tags.push('momentum');
+    }
+    return tags;
 };
 
 const marketScore = (market) =>
@@ -66,6 +215,7 @@ const selectCandidates = (markets, options) => {
             ...market,
             pickSide,
             tokenId: pickSide === 'YES' ? market.tokens.yes : market.tokens.no,
+            activityVolume: market.volume,
             score: marketScore(market)
         }))
         .sort((a, b) => b.score - a.score);
@@ -140,7 +290,62 @@ const selectBestCandidate = (candidates) => {
     }, null);
 };
 
-const discoverBestMarket = async (options) => {
+const selectWebCandidates = (results, options) => {
+    const minLiquidity = normalizeNumber(options.minLiquidity);
+    const minVolume = normalizeNumber(options.minVolume);
+    const pickSide = normalizeSide(options.pickSide);
+    const spreadAlert = normalizeNumber(options.spreadAlert);
+    const priceMoveAlert = normalizeNumber(options.priceMoveAlert);
+    const maxMarkets = Number(options.webMaxMarkets || 0);
+    const webMarkets = collectWebMarkets(results, maxMarkets);
+
+    return webMarkets
+        .map((market) => {
+            const pickSidePrice =
+                market.outcomeMap[pickSide] ?? market.outcomeMap[pickSide.toUpperCase()];
+            return {
+                ...market,
+                pickSide,
+                pickSidePrice: Number.isFinite(pickSidePrice) ? pickSidePrice : null,
+                score: scoreWebMarket(market),
+                tags: tagWebMarket(market, {
+                    minLiquidity,
+                    minVolume,
+                    spreadAlert,
+                    priceMoveAlert
+                })
+            };
+        })
+        .filter(
+            (market) =>
+                market.liquidity >= minLiquidity &&
+                market.activityVolume >= minVolume
+        )
+        .sort((a, b) => b.score - a.score);
+};
+
+const discoverBestMarketFromWeb = async (options) => {
+    const webUrl = options.webUrl || 'https://polymarket.com/markets';
+    const response = await http.get(webUrl);
+    const nextData = extractNextData(response.data);
+    const results = collectWebResults(nextData);
+    const evaluated = selectWebCandidates(results, options);
+    const best = evaluated[0] || null;
+
+    return {
+        source: 'web',
+        pickSide: normalizeSide(options.pickSide),
+        webUrl,
+        totals: {
+            results: results.length,
+            evaluated: evaluated.length
+        },
+        evaluated,
+        best
+    };
+};
+
+const discoverBestMarketFromApi = async (options) => {
     const gammaHost = options.gammaHost;
     const clobHost = options.clobHost;
     const chainId = Number(options.chainId);
@@ -161,6 +366,7 @@ const discoverBestMarket = async (options) => {
     const best = selectBestCandidate(evaluated);
 
     return {
+        source: 'api',
         pickSide,
         gammaHost,
         clobHost,
@@ -173,6 +379,14 @@ const discoverBestMarket = async (options) => {
         evaluated,
         best
     };
+};
+
+const discoverBestMarket = async (options) => {
+    const source = String(options.source || 'api').toLowerCase();
+    if (source === 'web') {
+        return discoverBestMarketFromWeb(options);
+    }
+    return discoverBestMarketFromApi(options);
 };
 
 const createOrder = async (options) => {

@@ -117,6 +117,9 @@ const fetchCollectibles = async () => {
 const fetchPolymarket = async () => {
     const settings = config.markets.polymarket;
     const discovery = await polymarketClient.discoverBestMarket({
+        source: settings.source,
+        webUrl: settings.webUrl,
+        webMaxMarkets: settings.webMaxMarkets,
         gammaHost: settings.gammaHost,
         clobHost: settings.clobHost,
         chainId: settings.chainId,
@@ -124,15 +127,15 @@ const fetchPolymarket = async () => {
         minVolume: settings.minVolume,
         candidates: settings.candidates,
         spreadCheckTop: settings.spreadCheckTop,
-        pickSide: settings.pickSide
+        pickSide: settings.pickSide,
+        spreadAlert: settings.spreadAlert,
+        priceMoveAlert: settings.priceMoveAlert
     });
 
-    const topSignals = discovery.evaluated
-        .filter((candidate) => candidate.spread !== null)
-        .slice(0, settings.signalTop);
+    const topSignals = (discovery.evaluated || []).slice(0, settings.signalTop);
 
     return {
-        source: 'polymarket',
+        source: discovery.source || 'polymarket',
         generatedAt: new Date().toISOString(),
         pickSide: discovery.pickSide,
         totals: discovery.totals,

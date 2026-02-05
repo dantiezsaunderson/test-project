@@ -126,50 +126,101 @@ const generateCollectibleSignals = (current, previous) => {
     );
 };
 
-const generatePolymarketSignals = (current, previous, spreadAlert) => {
+const generatePolymarketSignals = (current, previous, settings) => {
     if (!current || !current.best) {
         return [];
     }
 
     const signals = [];
     const previousBest = previous && previous.best ? previous.best : null;
-    const hasChanged =
-        !previousBest ||
-        previousBest.id !== current.best.id ||
-        previousBest.tokenId !== current.best.tokenId;
+    const currentKey =
+        current.best.id || current.best.marketId || current.best.slug || current.best.question;
+    const previousKey =
+        previousBest?.id ||
+        previousBest?.marketId ||
+        previousBest?.slug ||
+        previousBest?.question;
+    const hasChanged = !previousBest || currentKey !== previousKey;
 
     if (hasChanged) {
         signals.push(
             createSignal(
                 'polymarket',
                 'best-market',
-                `Best execution candidate: ${current.best.question} (${current.best.pickSide}).`,
+                `Best research candidate: ${current.best.question || 'Unknown market'}.`,
                 {
-                    marketId: current.best.id,
+                    marketId: current.best.id || current.best.marketId || null,
                     slug: current.best.slug,
                     tokenId: current.best.tokenId,
                     spread: current.best.spread,
                     liquidity: current.best.liquidity,
-                    volume: current.best.volume
+                    volume: current.best.volume,
+                    activityVolume: current.best.activityVolume,
+                    url: current.best.url || null
+                }
+            )
+        );
+    }
+
+    const tags = Array.isArray(current.best.tags) ? current.best.tags : [];
+    const spreadAlert = settings.spreadAlert;
+    const priceMoveAlert = settings.priceMoveAlert;
+
+    if (
+        tags.includes('tight-spread') ||
+        (Number.isFinite(current.best.spread) &&
+            current.best.spread <= spreadAlert)
+    ) {
+        signals.push(
+            createSignal(
+                'polymarket',
+                'tight-spread',
+                `Tight spread detected (${current.best.spread?.toFixed(4) ?? 'n/a'}) for ${current.best.question}.`,
+                {
+                    marketId: current.best.id || current.best.marketId || null,
+                    slug: current.best.slug,
+                    tokenId: current.best.tokenId,
+                    spread: current.best.spread
                 }
             )
         );
     }
 
     if (
-        Number.isFinite(current.best.spread) &&
-        current.best.spread <= spreadAlert
+        tags.includes('high-volume') ||
+        (Number.isFinite(current.best.activityVolume) &&
+            current.best.activityVolume >= settings.minVolume * 2)
     ) {
         signals.push(
             createSignal(
                 'polymarket',
-                'tight-spread',
-                `Tight spread detected (${current.best.spread.toFixed(4)}) for ${current.best.question}.`,
+                'high-volume',
+                `High activity volume detected for ${current.best.question}.`,
                 {
-                    marketId: current.best.id,
+                    marketId: current.best.id || current.best.marketId || null,
                     slug: current.best.slug,
-                    tokenId: current.best.tokenId,
-                    spread: current.best.spread
+                    activityVolume: current.best.activityVolume,
+                    volume24hr: current.best.volume24hr
+                }
+            )
+        );
+    }
+
+    const dayMove = Math.abs(current.best.oneDayPriceChange ?? 0);
+    if (
+        tags.includes('momentum') ||
+        (Number.isFinite(dayMove) && dayMove >= priceMoveAlert)
+    ) {
+        signals.push(
+            createSignal(
+                'polymarket',
+                'momentum',
+                `Momentum shift detected (${dayMove.toFixed(4)}) for ${current.best.question}.`,
+                {
+                    marketId: current.best.id || current.best.marketId || null,
+                    slug: current.best.slug,
+                    oneDayPriceChange: current.best.oneDayPriceChange,
+                    oneHourPriceChange: current.best.oneHourPriceChange
                 }
             )
         );
@@ -216,7 +267,7 @@ const generateSignals = (market, currentSnapshot, previousSnapshot) => {
         return generatePolymarketSignals(
             currentData,
             previousData,
-            config.markets.polymarket.spreadAlert
+            config.markets.polymarket
         );
     }
 

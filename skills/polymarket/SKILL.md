@@ -7,7 +7,8 @@ metadata: { "openclaw": { "emoji": "🟣", "requires": { "bins": ["node"] } } }
 # Polymarket Assistant
 
 This skill connects OpenClaw to the Polymarket signals and trading CLI in this repo.
-It is **research-only by default** and will only trade when explicitly confirmed.
+It **scans the Polymarket website by default** (no API credentials required) and
+is research-only unless explicitly enabled for trading.
 
 ## Requirements
 
@@ -19,12 +20,12 @@ It is **research-only by default** and will only trade when explicitly confirmed
 
 ## Commands (via exec)
 
-- Status (best current market):
-  - `node {baseDir}/polymarket.js status`
+- Status (best current market, website scan):
+  - `node {baseDir}/polymarket.js status --source web`
 - Discover top candidates:
-  - `node {baseDir}/polymarket.js discover`
+  - `node {baseDir}/polymarket.js discover --source web`
 - Recent signals:
-  - `node {baseDir}/polymarket.js signals --limit 5`
+  - `node {baseDir}/polymarket.js signals --limit 5 --source web`
 - Balance/allowance:
   - `node {baseDir}/polymarket.js balance --asset collateral`
 - Derive L2 API credentials (requires PRIVATE KEY env vars):

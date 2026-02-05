@@ -79,6 +79,9 @@ const config = {
         },
         polymarket: {
             enabled: process.env.POLYMARKET_ENABLED !== 'false',
+            source: (process.env.POLYMARKET_SOURCE || 'web').toLowerCase(),
+            webUrl: process.env.POLYMARKET_WEB_URL || 'https://polymarket.com/markets',
+            webMaxMarkets: parseNumber(process.env.POLYMARKET_WEB_MAX_MARKETS, 200),
             gammaHost: process.env.POLYMARKET_GAMMA_HOST || 'https://gamma-api.polymarket.com',
             clobHost: process.env.POLYMARKET_CLOB_HOST || 'https://clob.polymarket.com',
             chainId: parseNumber(process.env.POLYMARKET_CHAIN_ID, 137),
@@ -89,6 +92,7 @@ const config = {
             pickSide: (process.env.POLYMARKET_PICK_SIDE || 'YES').toUpperCase(),
             signalTop: parseNumber(process.env.POLYMARKET_SIGNAL_TOP, 5),
             spreadAlert: parseNumber(process.env.POLYMARKET_SPREAD_ALERT, 0.02),
+            priceMoveAlert: parseNumber(process.env.POLYMARKET_PRICE_MOVE_ALERT, 0.05),
             allowTrading: process.env.POLYMARKET_ALLOW_TRADING === 'true',
             dryRun: process.env.POLYMARKET_DRY_RUN !== 'false',
             maxOrderUsdc: parseNumber(process.env.POLYMARKET_MAX_ORDER_USDC, 10)

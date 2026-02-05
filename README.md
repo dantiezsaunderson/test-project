@@ -63,14 +63,18 @@ Key options:
 - `POLYMARKET_*` - Polymarket discovery and trading controls
 
 ## Polymarket integration
-The bot can discover Polymarket markets, score liquidity/volume, and produce
-execution-focused signals based on spread checks. Trading is **off by default**
-and requires explicit opt-in.
+The bot can scan the Polymarket website, score liquidity/volume/spread, and
+produce research-focused signals. Trading is **off by default** and requires
+explicit opt-in.
 
 Key variables (see `.env.example`):
+- `POLYMARKET_SOURCE` - `web` (default) or `api`
+- `POLYMARKET_WEB_URL` - page to scan (default Polymarket markets page)
+- `POLYMARKET_WEB_MAX_MARKETS` - limit for parsed markets
 - `POLYMARKET_GAMMA_HOST`, `POLYMARKET_CLOB_HOST` - API hosts
 - `POLYMARKET_MIN_LIQUIDITY`, `POLYMARKET_MIN_VOLUME` - filters
 - `POLYMARKET_PICK_SIDE` - YES or NO outcome token
+- `POLYMARKET_PRICE_MOVE_ALERT` - momentum threshold for research signals
 - `POLYMARKET_ALLOW_TRADING` - must be `true` to allow trade execution
 - `POLYMARKET_DRY_RUN` - must be `false` to actually place orders
 
@@ -127,7 +131,7 @@ This repo also ships `skills/polymarket` to let OpenClaw query Polymarket
 signals and (when explicitly allowed) place trades.
 
 Example:
-- `node /absolute/path/to/this-repo/skills/polymarket/polymarket.js signals --limit 5`
+- `node /absolute/path/to/this-repo/skills/polymarket/polymarket.js signals --limit 5 --source web`
 - `node /absolute/path/to/this-repo/skills/polymarket/polymarket.js balance --asset collateral`
 - `node /absolute/path/to/this-repo/skills/polymarket/polymarket.js trade --confirm`
 

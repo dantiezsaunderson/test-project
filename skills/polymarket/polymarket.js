@@ -19,6 +19,9 @@ Usage:
   polymarket.js trade --confirm
 
 Options:
+  --source web|api
+  --web-url <url>
+  --web-max <number>
   --side YES|NO
   --min-liquidity <number>
   --min-volume <number>
@@ -56,6 +59,9 @@ const parseArgs = (args) => {
 const buildDiscoveryOptions = (overrides = {}) => {
     const settings = config.markets.polymarket;
     return {
+        source: overrides.source || settings.source,
+        webUrl: overrides['web-url'] || settings.webUrl,
+        webMaxMarkets: Number(overrides['web-max'] || settings.webMaxMarkets),
         gammaHost: settings.gammaHost,
         clobHost: settings.clobHost,
         chainId: settings.chainId,
@@ -63,7 +69,9 @@ const buildDiscoveryOptions = (overrides = {}) => {
         minVolume: Number(overrides['min-volume'] || settings.minVolume),
         candidates: Number(overrides.candidates || settings.candidates),
         spreadCheckTop: Number(overrides['spread-top'] || settings.spreadCheckTop),
-        pickSide: overrides.side || settings.pickSide
+        pickSide: overrides.side || settings.pickSide,
+        spreadAlert: settings.spreadAlert,
+        priceMoveAlert: settings.priceMoveAlert
     };
 };
 
@@ -71,10 +79,15 @@ const formatCandidate = (candidate) => ({
     id: candidate.id,
     question: candidate.question,
     pickSide: candidate.pickSide,
-    tokenId: candidate.tokenId,
+    pickSidePrice: candidate.pickSidePrice ?? null,
+    tokenId: candidate.tokenId ?? null,
     spread: candidate.spread,
     liquidity: candidate.liquidity,
-    volume: candidate.volume
+    volume: candidate.volume,
+    activityVolume: candidate.activityVolume ?? null,
+    volume24hr: candidate.volume24hr ?? null,
+    url: candidate.url ?? null,
+    tags: candidate.tags ?? []
 });
 
 const showStatus = async (options) => {
@@ -85,7 +98,7 @@ const showStatus = async (options) => {
         console.log('No suitable market found with current filters.');
         return;
     }
-    console.log('Best execution candidate:');
+    console.log(`Best candidate (${discovery.source || 'unknown'}):`);
     console.log(JSON.stringify(formatCandidate(discovery.best), null, 2));
 };
 
