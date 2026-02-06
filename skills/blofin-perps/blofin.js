@@ -147,6 +147,38 @@ const buildLiquidityPools = (levels, tolerancePct, minTouches) => {
     return pools;
 };
 
+const findSwings = (candles, pivot) => {
+    const highs = [];
+    const lows = [];
+    for (let i = pivot; i < candles.length - pivot; i += 1) {
+        const currentHigh = candles[i].high;
+        const currentLow = candles[i].low;
+        let isHigh = true;
+        let isLow = true;
+        for (let j = 1; j <= pivot; j += 1) {
+            if (
+                candles[i - j].high >= currentHigh ||
+                candles[i + j].high > currentHigh
+            ) {
+                isHigh = false;
+            }
+            if (
+                candles[i - j].low <= currentLow ||
+                candles[i + j].low < currentLow
+            ) {
+                isLow = false;
+            }
+        }
+        if (isHigh) {
+            highs.push({ index: i, price: currentHigh });
+        }
+        if (isLow) {
+            lows.push({ index: i, price: currentLow });
+        }
+    }
+    return { highs, lows };
+};
+
 const normalizeSplits = (splits, count) => {
     if (!count) {
         return [];
