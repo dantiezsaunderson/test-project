@@ -247,6 +247,17 @@ Example:
 - `skills/polymarket-btc-15m-assistant` - Polymarket BTC 15m console assistant
 - `skills/blofin-perps` - Blofin perps scanner + manual order CLI
 - `skills/forward-test` - start/stop forward-test scheduler
+- `skills/fabia-scalping` - AMT/Market Profile scalping model (proxy)
+
+### Fabia Valentina scalping model (proxy)
+This model uses OHLCV candles to approximate Market Profile (POC/VAH/VAL/HVN/LVN)
+and produces directional bias based on balance vs imbalance. It **requires order-flow**
+confirmation to trade live.
+
+Example:
+```bash
+node skills/fabia-scalping/fabia.js signal --inst BTC-USDT --tf 5m --limit 240
+```
 
 Example:
 - `node /absolute/path/to/this-repo/skills/market-signals/market-signals.js --limit 10`

@@ -255,6 +255,46 @@ const config = {
                     process.env.BLOFIN_ICC_TP_SPLITS,
                     [0.4, 0.3, 0.3]
                 )
+            },
+            fabia: {
+                bucketPct: parseNumber(process.env.BLOFIN_FABIA_BUCKET_PCT, 0.001),
+                valueAreaPct: parseNumber(
+                    process.env.BLOFIN_FABIA_VALUE_AREA_PCT,
+                    0.7
+                ),
+                hvnRatio: parseNumber(process.env.BLOFIN_FABIA_HVN_RATIO, 0.7),
+                lvnRatio: parseNumber(process.env.BLOFIN_FABIA_LVN_RATIO, 0.3),
+                balanceThreshold: parseNumber(
+                    process.env.BLOFIN_FABIA_BALANCE_THRESHOLD,
+                    0.55
+                ),
+                trendThreshold: parseNumber(
+                    process.env.BLOFIN_FABIA_TREND_THRESHOLD,
+                    0.5
+                ),
+                breakoutLookback: parseNumber(
+                    process.env.BLOFIN_FABIA_BREAKOUT_LOOKBACK,
+                    8
+                ),
+                pullbackTolerancePct: parseNumber(
+                    process.env.BLOFIN_FABIA_PULLBACK_TOL_PCT,
+                    0.002
+                ),
+                stopBufferPct: parseNumber(
+                    process.env.BLOFIN_FABIA_STOP_BUFFER_PCT,
+                    0.002
+                ),
+                londonStartHour: parseNumber(
+                    process.env.BLOFIN_FABIA_LONDON_START,
+                    7
+                ),
+                londonEndHour: parseNumber(
+                    process.env.BLOFIN_FABIA_LONDON_END,
+                    13
+                ),
+                nyStartHour: parseNumber(process.env.BLOFIN_FABIA_NY_START, 13),
+                nyEndHour: parseNumber(process.env.BLOFIN_FABIA_NY_END, 17),
+                sessionMode: (process.env.BLOFIN_FABIA_SESSION_MODE || 'auto').toLowerCase()
             }
         }
     }
