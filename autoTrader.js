@@ -66,6 +66,20 @@ const floorToStep = (value, step) => {
     return Number(floored.toFixed(precision));
 };
 
+const normalizeSplits = (splits, count) => {
+    if (!count) {
+        return [];
+    }
+    if (!Array.isArray(splits) || splits.length !== count) {
+        return Array(count).fill(1 / count);
+    }
+    const total = splits.reduce((acc, value) => acc + value, 0);
+    if (!(total > 0)) {
+        return Array(count).fill(1 / count);
+    }
+    return splits.map((value) => value / total);
+};
+
 const computeRiskBasedSize = ({
     riskUsd,
     price,
@@ -477,6 +491,77 @@ const runBlofinAutoTrade = async ({ signals, snapshot, reason } = {}) => {
         });
 
         action.orderId = result?.orderId || result?.ordId || null;
+
+        if (settings.autoBrackets) {
+            const closeSide = side === 'buy' ? 'sell' : 'buy';
+            const positionSide =
+                settings.positionMode === 'long_short_mode'
+                    ? side === 'buy'
+                        ? 'long'
+                        : 'short'
+                    : undefined;
+            const stop = Number.isFinite(stopLoss) ? stopLoss : null;
+            const rawTargets = Array.isArray(entry.signal?.takeProfitLevels)
+                ? entry.signal.takeProfitLevels
+                : Number.isFinite(takeProfit)
+                    ? [takeProfit]
+                    : [];
+            const directionTargets = rawTargets
+                .map((level) => Number(level))
+                .filter((level) => Number.isFinite(level))
+                .filter((level) =>
+                    side === 'buy' ? level > price : level < price
+                )
+                .sort((a, b) => (side === 'buy' ? a - b : b - a));
+            const splits = normalizeSplits(
+                entry.signal?.takeProfitSplits,
+                directionTargets.length
+            );
+            const minLot = instrument.minSize || instrument.lotSize || 0;
+            const tpSizes = splits.map((split) =>
+                floorToStep(size * split, instrument.lotSize)
+            );
+            const tpOrders = [];
+            if (directionTargets.length && minLot > 0) {
+                for (let i = 0; i < directionTargets.length; i += 1) {
+                    if (tpSizes[i] < minLot) {
+                        continue;
+                    }
+                    const tpOrder = await blofinClient.placeTpslOrder({
+                        instId,
+                        marginMode: settings.marginMode,
+                        positionSide,
+                        side: closeSide,
+                        tpTriggerPrice: directionTargets[i],
+                        tpOrderPrice: -1,
+                        size: tpSizes[i],
+                        reduceOnly: true
+                    });
+                    tpOrders.push(tpOrder);
+                }
+            }
+            let slOrder = null;
+            if (Number.isFinite(stop)) {
+                slOrder = await blofinClient.placeTpslOrder({
+                    instId,
+                    marginMode: settings.marginMode,
+                    positionSide,
+                    side: closeSide,
+                    slTriggerPrice: stop,
+                    slOrderPrice: -1,
+                    size: '-1',
+                    reduceOnly: true
+                });
+            }
+            action.brackets = {
+                tpLevels: directionTargets,
+                tpSizes,
+                sl: stop,
+                tpOrders,
+                slOrder
+            };
+        }
+
         await dataStore.addAutoTrade(action);
         actions.push(action);
         simulatedPositions.add(instId);

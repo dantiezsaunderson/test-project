@@ -104,6 +104,7 @@ Key variables (see `.env.example`):
 - `BLOFIN_AUTO_TRADE` - must be `true` to enable auto-trading
 - `BLOFIN_KILL_SWITCH` - set `true` to halt auto-trading immediately
 - `BLOFIN_AUTO_PAUSE_AFTER_TRADE` - pause auto-trading after first live trade
+- `BLOFIN_AUTO_BRACKETS` - place TP/SL brackets after auto entry
 - `BLOFIN_RISK_USDT` - per-trade notional cap (safe default: 2)
 - `BLOFIN_RISK_PCT` - percent-of-available USDT per trade (e.g. 0.03 = 3%)
   - When `BLOFIN_RISK_PCT` is set and a USDT balance is available, it overrides `BLOFIN_RISK_USDT`.
