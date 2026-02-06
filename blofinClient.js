@@ -182,6 +182,90 @@ const placeOrder = async ({
     return payload.data || payload;
 };
 
+const placeTpslOrder = async ({
+    instId,
+    marginMode,
+    positionSide,
+    side,
+    tpTriggerPrice,
+    tpOrderPrice,
+    slTriggerPrice,
+    slOrderPrice,
+    size,
+    reduceOnly,
+    clientOrderId
+}) => {
+    const requestBody = {
+        instId,
+        marginMode,
+        side,
+        size: size !== undefined && size !== null ? String(size) : undefined,
+        reduceOnly: reduceOnly ? 'true' : 'false',
+        clientOrderId: clientOrderId || ''
+    };
+    if (positionSide) {
+        requestBody.positionSide = positionSide;
+    }
+    if (tpTriggerPrice !== undefined && tpTriggerPrice !== null) {
+        requestBody.tpTriggerPrice = String(tpTriggerPrice);
+        requestBody.tpOrderPrice =
+            tpOrderPrice !== undefined && tpOrderPrice !== null
+                ? String(tpOrderPrice)
+                : '';
+    }
+    if (slTriggerPrice !== undefined && slTriggerPrice !== null) {
+        requestBody.slTriggerPrice = String(slTriggerPrice);
+        requestBody.slOrderPrice =
+            slOrderPrice !== undefined && slOrderPrice !== null
+                ? String(slOrderPrice)
+                : '';
+    }
+    const payload = await privatePost('trade/order-tpsl', requestBody);
+    return payload.data || payload;
+};
+
+const placeAlgoOrder = async ({
+    instId,
+    marginMode,
+    positionSide,
+    side,
+    size,
+    orderType,
+    orderPrice,
+    triggerPrice,
+    triggerPriceType,
+    reduceOnly,
+    attachAlgoOrders,
+    clientOrderId,
+    brokerId
+}) => {
+    const requestBody = {
+        instId,
+        marginMode,
+        side,
+        size: size !== undefined && size !== null ? String(size) : undefined,
+        orderType,
+        orderPrice:
+            orderPrice !== undefined && orderPrice !== null
+                ? String(orderPrice)
+                : undefined,
+        triggerPrice:
+            triggerPrice !== undefined && triggerPrice !== null
+                ? String(triggerPrice)
+                : undefined,
+        triggerPriceType: triggerPriceType || 'last',
+        reduceOnly: reduceOnly ? 'true' : 'false',
+        attachAlgoOrders: attachAlgoOrders || [],
+        clientOrderId: clientOrderId || '',
+        brokerId: brokerId || ''
+    };
+    if (positionSide) {
+        requestBody.positionSide = positionSide;
+    }
+    const payload = await privatePost('trade/order-algo', requestBody);
+    return payload.data || payload;
+};
+
 module.exports = {
     fetchInstruments,
     fetchTickers,
@@ -190,5 +274,7 @@ module.exports = {
     fetchAccountBalance,
     fetchPositions,
     setLeverage,
-    placeOrder
+    placeOrder,
+    placeTpslOrder,
+    placeAlgoOrder
 };

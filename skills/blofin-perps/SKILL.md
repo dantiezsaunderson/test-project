@@ -26,6 +26,8 @@ It can also run a single auto-trade cycle when the auto-trade guards are enabled
   - `node {baseDir}/blofin.js balance`
 - Place an order (manual only):
   - `node {baseDir}/blofin.js order --inst BTC-USDT --side buy --type market --size 1 --confirm`
+- Place a bracket order with multi-TP + SL:
+  - `node {baseDir}/blofin.js bracket --inst BTC-USDT --side sell --size 0.3 --auto-targets --confirm`
 
 ## Safety
 

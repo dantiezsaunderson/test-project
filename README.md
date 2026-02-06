@@ -140,6 +140,13 @@ BLOFIN_ALLOW_TRADING=true BLOFIN_DRY_RUN=false \
   node skills/blofin-perps/blofin.js order --inst BTC-USDT --side buy --type market --size 1 --confirm
 ```
 
+To place a bracket order with multi-TP + SL:
+```bash
+BLOFIN_ALLOW_TRADING=true BLOFIN_DRY_RUN=false \
+  node skills/blofin-perps/blofin.js bracket --inst BTC-USDT --side sell --size 0.3 --auto-targets --confirm
+```
+Note: multi-TP splits require enough size to meet the instrument's lot size.
+
 To run one auto-trade cycle (safe defaults keep this disabled):
 ```bash
 BLOFIN_AUTO_TRADE=true BLOFIN_ALLOW_TRADING=true BLOFIN_DRY_RUN=true \

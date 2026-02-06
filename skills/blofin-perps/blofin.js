@@ -19,6 +19,7 @@ Usage:
   blofin.js positions
   blofin.js balance
   blofin.js order --inst BTC-USDT --side buy --type market --size 1 --confirm
+  blofin.js bracket --inst BTC-USDT --side sell --size 0.3 --confirm
 
 Options:
   --limit <number>
@@ -29,6 +30,12 @@ Options:
   --type market|limit
   --size <number>
   --price <number>
+  --sl <number>
+  --tp1 <number>
+  --tp2 <number>
+  --tp3 <number>
+  --tp-splits <a,b,c>
+  --auto-targets
   --confirm
 `.trim();
 
@@ -43,6 +50,8 @@ const parseArgs = (args) => {
                 options.flags.add('confirm');
             } else if (key === 'perf' || key === 'performance') {
                 options.flags.add('perf');
+            } else if (key === 'auto-targets') {
+                options.flags.add('auto-targets');
             } else {
                 options[key] = args[i + 1];
                 i += 1;
@@ -94,6 +103,153 @@ const computeSharpe = (values) => {
         return 0;
     }
     return (mean / std) * Math.sqrt(values.length);
+};
+
+const floorToStep = (value, step) => {
+    if (!Number.isFinite(step) || step <= 0) {
+        return value;
+    }
+    const precision = step.toString().split('.')[1]?.length || 0;
+    const floored = Math.floor(value / step) * step;
+    return Number(floored.toFixed(precision));
+};
+
+const buildLiquidityPools = (levels, tolerancePct, minTouches) => {
+    if (!Array.isArray(levels) || levels.length === 0) {
+        return [];
+    }
+    if (!(tolerancePct > 0) || !(minTouches > 1)) {
+        return [];
+    }
+    const sorted = [...levels].sort((a, b) => a - b);
+    const pools = [];
+    let bucket = [sorted[0]];
+    for (let i = 1; i < sorted.length; i += 1) {
+        const current = sorted[i];
+        const last = bucket[bucket.length - 1];
+        const within = Math.abs(current - last) / (last || 1) <= tolerancePct;
+        if (within) {
+            bucket.push(current);
+        } else {
+            if (bucket.length >= minTouches) {
+                const avg =
+                    bucket.reduce((acc, value) => acc + value, 0) /
+                    bucket.length;
+                pools.push({ price: avg, touches: bucket.length });
+            }
+            bucket = [current];
+        }
+    }
+    if (bucket.length >= minTouches) {
+        const avg = bucket.reduce((acc, value) => acc + value, 0) / bucket.length;
+        pools.push({ price: avg, touches: bucket.length });
+    }
+    return pools;
+};
+
+const normalizeSplits = (splits, count) => {
+    if (!count) {
+        return [];
+    }
+    if (!Array.isArray(splits) || splits.length !== count) {
+        return Array(count).fill(1 / count);
+    }
+    const total = splits.reduce((acc, value) => acc + value, 0);
+    if (!(total > 0)) {
+        return Array(count).fill(1 / count);
+    }
+    return splits.map((value) => value / total);
+};
+
+const parseSplitList = (value) => {
+    if (!value) {
+        return null;
+    }
+    const list = value
+        .split(',')
+        .map((item) => Number(item.trim()))
+        .filter((item) => Number.isFinite(item));
+    return list.length ? list : null;
+};
+
+const buildAutoTargets = async ({ instId, side }) => {
+    const settings = config.markets.blofin;
+    const entryCandles = await blofinClient.fetchCandles({
+        instId,
+        bar: settings.entryTimeframe,
+        limit: settings.entryCandleLimit
+    });
+    const highCandles = await blofinClient.fetchCandles({
+        instId,
+        bar: settings.highTimeframe,
+        limit: settings.highCandleLimit
+    });
+    const entrySorted = [...entryCandles].sort((a, b) => a.ts - b.ts);
+    const highSorted = [...highCandles].sort((a, b) => a.ts - b.ts);
+    const entrySlice = entrySorted.slice(
+        Math.max(0, entrySorted.length - settings.strategy.entryLookback)
+    );
+    const { highs: entryHighs, lows: entryLows } = findSwings(
+        entrySlice,
+        settings.strategy.entryPivot
+    );
+    const lastEntryHigh =
+        entryHighs.length > 0
+            ? entryHighs[entryHighs.length - 1].price
+            : null;
+    const lastEntryLow =
+        entryLows.length > 0 ? entryLows[entryLows.length - 1].price : null;
+
+    const mark = await blofinClient.fetchMarkPrice(instId);
+    const entryPrice = toNumber(mark?.[0]?.markPrice || mark?.markPrice, null);
+    if (!Number.isFinite(entryPrice)) {
+        throw new Error('Failed to fetch mark price.');
+    }
+
+    const isSell = side === 'sell';
+    const stopLoss = isSell ? lastEntryHigh : lastEntryLow;
+    if (!Number.isFinite(stopLoss)) {
+        throw new Error('Unable to derive tight SL from entry swings.');
+    }
+
+    const { highs: highSwings, lows: lowSwings } = findSwings(
+        highSorted,
+        settings.strategy.swingPivot
+    );
+    const swingLevels = isSell
+        ? lowSwings.map((swing) => swing.price)
+        : highSwings.map((swing) => swing.price);
+    const pools = buildLiquidityPools(
+        swingLevels,
+        settings.strategy.liquidityTolerancePct,
+        settings.strategy.liquidityMinTouches
+    );
+    const poolLevels = pools.map((pool) => pool.price);
+
+    const targetLevels = (poolLevels.length ? poolLevels : swingLevels)
+        .filter((level) => (isSell ? level < entryPrice : level > entryPrice))
+        .sort((a, b) => (isSell ? b - a : a - b))
+        .slice(0, 3);
+
+    const risk = Math.abs(entryPrice - stopLoss);
+    const fallbackTargets = [
+        entryPrice + (isSell ? -1 : 1) * risk * settings.strategy.targetR1,
+        entryPrice + (isSell ? -1 : 1) * risk * settings.strategy.targetR2,
+        entryPrice + (isSell ? -1 : 1) * risk * settings.strategy.targetR3
+    ];
+
+    const targets = targetLevels.length ? targetLevels : fallbackTargets;
+    const splits = normalizeSplits(
+        settings.strategy.takeProfitSplits,
+        targets.length
+    );
+
+    return {
+        entryPrice,
+        stopLoss,
+        targets,
+        splits
+    };
 };
 
 const normalizeSplits = (splits, count) => {
@@ -612,6 +768,144 @@ const placeOrder = async (options) => {
     console.log(JSON.stringify(result, null, 2));
 };
 
+const placeBracketOrder = async (options) => {
+    if (!config.markets.blofin.allowTrading) {
+        throw new Error('Trading disabled. Set BLOFIN_ALLOW_TRADING=true.');
+    }
+    if (config.markets.blofin.dryRun) {
+        throw new Error('BLOFIN_DRY_RUN=true. Disable to place orders.');
+    }
+    if (!options.flags.has('confirm')) {
+        throw new Error('Order requires --confirm.');
+    }
+
+    const instId = options.inst;
+    const side = options.side;
+    const size = Number(options.size);
+
+    if (!instId) {
+        throw new Error('Missing --inst.');
+    }
+    if (!['buy', 'sell'].includes(side)) {
+        throw new Error('Side must be buy or sell.');
+    }
+    if (!Number.isFinite(size) || size <= 0) {
+        throw new Error('Size must be a positive number.');
+    }
+
+    const instruments = await blofinClient.fetchInstruments(
+        config.markets.blofin.instType
+    );
+    const instrument = instruments.find((item) => item.instId === instId);
+    const lotSize = toNumber(
+        instrument?.lotSize || instrument?.lotSz || instrument?.minSize,
+        1
+    );
+
+    let stopLoss = options.sl ? Number(options.sl) : null;
+    let tpLevels = [
+        options.tp1 ? Number(options.tp1) : null,
+        options.tp2 ? Number(options.tp2) : null,
+        options.tp3 ? Number(options.tp3) : null
+    ].filter((value) => Number.isFinite(value));
+    let tpSplits = parseSplitList(options['tp-splits']);
+
+    if (!tpSplits) {
+        tpSplits = config.markets.blofin.strategy.takeProfitSplits;
+    }
+
+    if (options.flags.has('auto-targets') || !tpLevels.length || !stopLoss) {
+        const autoTargets = await buildAutoTargets({ instId, side });
+        stopLoss = stopLoss || autoTargets.stopLoss;
+        tpLevels = tpLevels.length ? tpLevels : autoTargets.targets;
+        tpSplits = normalizeSplits(tpSplits, tpLevels.length);
+    }
+
+    if (!Number.isFinite(stopLoss)) {
+        throw new Error('Missing --sl and auto-targets failed.');
+    }
+    if (!tpLevels.length) {
+        throw new Error('Missing take profit levels.');
+    }
+
+    const normalizedSplits = normalizeSplits(tpSplits, tpLevels.length);
+    const rawSizes = normalizedSplits.map((split) => size * split);
+    const roundedSizes = rawSizes.map((portion) =>
+        floorToStep(portion, lotSize)
+    );
+    const totalRounded = roundedSizes.reduce((acc, value) => acc + value, 0);
+    const minLot = Number(lotSize);
+    const validTargets = tpLevels.filter((_, index) => roundedSizes[index] >= minLot);
+
+    if (totalRounded < minLot) {
+        throw new Error(
+            'Size too small for multi-TP. Increase size or use fewer targets.'
+        );
+    }
+
+    const positionSide =
+        config.markets.blofin.positionMode === 'long_short_mode'
+            ? side === 'buy'
+                ? 'long'
+                : 'short'
+            : undefined;
+
+    const entryOrder = await blofinClient.placeOrder({
+        instId,
+        side,
+        orderType: 'market',
+        size,
+        marginMode: config.markets.blofin.marginMode,
+        positionSide
+    });
+
+    const tpResponses = [];
+    for (let i = 0; i < validTargets.length; i += 1) {
+        const tpLevel = validTargets[i];
+        const tpSize = roundedSizes[i];
+        if (!(tpSize >= minLot)) {
+            continue;
+        }
+        const response = await blofinClient.placeTpslOrder({
+            instId,
+            marginMode: config.markets.blofin.marginMode,
+            positionSide,
+            side,
+            tpTriggerPrice: tpLevel,
+            tpOrderPrice: -1,
+            size: tpSize,
+            reduceOnly: true
+        });
+        tpResponses.push(response);
+    }
+
+    const slResponse = await blofinClient.placeTpslOrder({
+        instId,
+        marginMode: config.markets.blofin.marginMode,
+        positionSide,
+        side,
+        slTriggerPrice: stopLoss,
+        slOrderPrice: -1,
+        size: '-1',
+        reduceOnly: true
+    });
+
+    console.log(
+        JSON.stringify(
+            {
+                entryOrder,
+                stopLoss,
+                tpLevels: validTargets,
+                tpSizes: roundedSizes.slice(0, validTargets.length),
+                tpResponses,
+                slResponse
+            },
+            null,
+            2
+        )
+    );
+};
+
 const main = async () => {
     const { options, rest } = parseArgs(process.argv.slice(2));
     const command = rest[0];
@@ -643,6 +937,10 @@ const main = async () => {
     }
     if (command === 'order') {
         await placeOrder(options);
+        return;
+    }
+    if (command === 'bracket') {
+        await placeBracketOrder(options);
         return;
     }
 
