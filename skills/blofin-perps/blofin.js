@@ -867,6 +867,7 @@ const placeBracketOrder = async (options) => {
                 ? 'long'
                 : 'short'
             : undefined;
+    const closeSide = side === 'buy' ? 'sell' : 'buy';
 
     const entryOrder = await blofinClient.placeOrder({
         instId,
@@ -888,7 +889,7 @@ const placeBracketOrder = async (options) => {
             instId,
             marginMode: config.markets.blofin.marginMode,
             positionSide,
-            side,
+            side: closeSide,
             tpTriggerPrice: tpLevel,
             tpOrderPrice: -1,
             size: tpSize,
@@ -901,7 +902,7 @@ const placeBracketOrder = async (options) => {
         instId,
         marginMode: config.markets.blofin.marginMode,
         positionSide,
-        side,
+        side: closeSide,
         slTriggerPrice: stopLoss,
         slOrderPrice: -1,
         size: '-1',
