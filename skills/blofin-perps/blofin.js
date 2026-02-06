@@ -6,6 +6,7 @@ require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
 const config = require('../../config');
 const blofinClient = require('../../blofinClient');
 const blofinScanner = require('../../blofinScanner');
+const fabiaScanner = require('../../fabiaScanner');
 const { runBlofinAutoTrade } = require('../../autoTrader');
 const dataStore = require('../../dataStore');
 
@@ -25,6 +26,7 @@ Options:
   --limit <number>
   --days <number>
   --perf
+  --strategy icc|fabia
   --inst <instId>
   --side buy|sell
   --type market|limit
@@ -487,7 +489,11 @@ const formatSignal = (entry) => {
 };
 
 const scanSignals = async (options) => {
-    const scan = await blofinScanner.fetchSignals();
+    const mode = (options.strategy || config.markets.blofin.strategyMode || 'icc').toLowerCase();
+    const scan =
+        mode === 'fabia'
+            ? await fabiaScanner.fetchSignals()
+            : await blofinScanner.fetchSignals();
     const limit = Number(options.limit || 5);
     const list = scan.signals.slice(0, limit);
     if (!list.length) {
@@ -500,7 +506,11 @@ const scanSignals = async (options) => {
 };
 
 const autoTradeOnce = async (options) => {
-    const scan = await blofinScanner.fetchSignals();
+    const mode = (options.strategy || config.markets.blofin.strategyMode || 'icc').toLowerCase();
+    const scan =
+        mode === 'fabia'
+            ? await fabiaScanner.fetchSignals()
+            : await blofinScanner.fetchSignals();
     const limit = Number(options.limit || 0);
     const signals = limit > 0 ? scan.signals.slice(0, limit) : scan.signals;
     const result = await runBlofinAutoTrade({

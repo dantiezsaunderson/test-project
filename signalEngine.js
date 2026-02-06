@@ -247,15 +247,17 @@ const generateBlofinSignals = (current, previous) => {
         const signal = entry.signal || {};
         const status = signal.status || 'WAIT';
         const bias = signal.bias || 'neutral';
+        const strategy = entry.strategy || current.strategy || 'icc';
 
         return createSignal(
             'blofin',
             'icc-scan',
-            `${entry.instId} ICC ${status} (${bias}).`,
+            `${entry.instId} ${strategy.toUpperCase()} ${status} (${bias}).`,
             {
                 instId: entry.instId,
                 status,
                 bias,
+                strategy,
                 reasons: signal.reasons,
                 indicationLevel: signal.indicationLevel,
                 structureHigh: signal.structureHigh,
@@ -269,6 +271,9 @@ const generateBlofinSignals = (current, previous) => {
                 liquidityTargets: signal.liquidityTargets,
                 correctionLiquidity: signal.correctionLiquidity,
                 liquiditySweep: signal.liquiditySweep,
+                marketState: signal.marketState,
+                session: signal.session,
+                profile: signal.profile,
                 lastPrice: entry.last,
                 volume24h: entry.volume24h,
                 timeframes: entry.timeframes

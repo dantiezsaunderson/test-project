@@ -158,6 +158,8 @@ const config = {
             marginMode: process.env.BLOFIN_MARGIN_MODE || 'cross',
             positionMode:
                 process.env.BLOFIN_POSITION_MODE || 'net_mode',
+            strategyMode:
+                (process.env.BLOFIN_STRATEGY_MODE || 'icc').toLowerCase(),
             autoTrade: process.env.BLOFIN_AUTO_TRADE === 'true',
             autoTradeKillSwitch: process.env.BLOFIN_KILL_SWITCH === 'true',
             autoPauseAfterTrade:

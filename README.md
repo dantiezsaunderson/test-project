@@ -101,6 +101,7 @@ Key variables (see `.env.example`):
 - `BLOFIN_HIGH_TIMEFRAME` / `BLOFIN_ENTRY_TIMEFRAME` - ICC timeframes
 - `BLOFIN_ALLOW_TRADING` - must be `true` to allow manual orders
 - `BLOFIN_DRY_RUN` - must be `false` to actually place orders
+- `BLOFIN_STRATEGY_MODE` - `icc` or `fabia` (one at a time)
 - `BLOFIN_AUTO_TRADE` - must be `true` to enable auto-trading
 - `BLOFIN_KILL_SWITCH` - set `true` to halt auto-trading immediately
 - `BLOFIN_AUTO_PAUSE_AFTER_TRADE` - pause auto-trading after first live trade
@@ -252,7 +253,8 @@ Example:
 ### Fabia Valentina scalping model (proxy)
 This model uses OHLCV candles to approximate Market Profile (POC/VAH/VAL/HVN/LVN)
 and produces directional bias based on balance vs imbalance. It **requires order-flow**
-confirmation to trade live.
+confirmation to trade live. Set `BLOFIN_STRATEGY_MODE=fabia` to drive the Blofin
+auto-trader and scans with the Fabia model.
 
 Example:
 ```bash

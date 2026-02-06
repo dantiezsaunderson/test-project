@@ -2,6 +2,7 @@ const axios = require('axios');
 const config = require('./config');
 const polymarketClient = require('./polymarketClient');
 const blofinScanner = require('./blofinScanner');
+const fabiaScanner = require('./fabiaScanner');
 
 const http = axios.create({
     timeout: 10000
@@ -146,13 +147,18 @@ const fetchPolymarket = async () => {
 };
 
 const fetchBlofinPerps = async () => {
-    const scan = await blofinScanner.fetchSignals();
+    const mode = config.markets.blofin.strategyMode || 'icc';
+    const scan =
+        mode === 'fabia'
+            ? await fabiaScanner.fetchSignals()
+            : await blofinScanner.fetchSignals();
     return {
         source: 'blofin',
         generatedAt: scan.generatedAt,
         timeframe: scan.timeframe,
         instType: scan.instType,
         total: scan.total,
+        strategy: scan.strategy || mode,
         signals: scan.signals,
         errors: scan.errors
     };
