@@ -252,20 +252,6 @@ const buildAutoTargets = async ({ instId, side }) => {
     };
 };
 
-const normalizeSplits = (splits, count) => {
-    if (!count) {
-        return [];
-    }
-    if (!Array.isArray(splits) || splits.length !== count) {
-        return Array(count).fill(1 / count);
-    }
-    const total = splits.reduce((acc, value) => acc + value, 0);
-    if (!(total > 0)) {
-        return Array(count).fill(1 / count);
-    }
-    return splits.map((value) => value / total);
-};
-
 const buildTargetPlan = (trade, entryPrice, isBuy) => {
     let levels = [];
     if (Array.isArray(trade.takeProfitLevels) && trade.takeProfitLevels.length) {
