@@ -200,6 +200,10 @@ const runBacktest = async ({
                         ts: candle.ts
                     });
                 }
+
+                if (openTrade.remaining <= 0) {
+                    openTrade.exitReason = 'all_targets_hit';
+                }
             }
 
             if (openTrade.remaining <= 0) {
