@@ -882,13 +882,11 @@ int OnInit()
    g_trade.SetTypeFillingBySymbol(_Symbol);
 
    g_symbol = TradeSymbol;
-   if(StringLen(g_symbol) == 0)
-      g_symbol = _Symbol;
-
-   if(g_symbol != _Symbol)
+   if(StringLen(g_symbol) == 0 || g_symbol != _Symbol)
    {
-      Print("TradeSymbol must match chart symbol for accurate pricing.");
-      return(INIT_FAILED);
+      g_symbol = _Symbol;
+      if(EnableDebugLogs)
+         Print("TradeSymbol does not match chart symbol. Using chart symbol.");
    }
 
    if(GoldDigits > 0 && _Digits != GoldDigits && EnableDebugLogs)
