@@ -154,7 +154,7 @@ const config = {
             allowTrading: process.env.BLOFIN_ALLOW_TRADING === 'true',
             dryRun: process.env.BLOFIN_DRY_RUN !== 'false',
             maxOrderUsdt: parseNumber(process.env.BLOFIN_MAX_ORDER_USDT, 10),
-            leverage: parseNumber(process.env.BLOFIN_LEVERAGE, 5),
+            leverage: parseNumber(process.env.BLOFIN_LEVERAGE, 10),
             marginMode: process.env.BLOFIN_MARGIN_MODE || 'cross',
             positionMode:
                 process.env.BLOFIN_POSITION_MODE || 'net_mode',
@@ -216,7 +216,7 @@ const config = {
                 ),
                 entryPivot: parseNumber(
                     process.env.BLOFIN_ICC_ENTRY_PIVOT,
-                    1
+                    2
                 ),
                 minSwingPct: parseNumber(
                     process.env.BLOFIN_ICC_MIN_SWING_PCT,
@@ -224,7 +224,7 @@ const config = {
                 ),
                 correctionThreshold: parseNumber(
                     process.env.BLOFIN_ICC_CORR_THRESHOLD,
-                    0.1
+                    0.05
                 ),
                 minDisplacementPct: parseNumber(
                     process.env.BLOFIN_ICC_MIN_DISPLACEMENT_PCT,
