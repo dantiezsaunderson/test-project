@@ -24,6 +24,10 @@ input double          IndicationBufferPoints  = 5;
 input double          MinCorrectionPoints     = 100;
 input double          EntryBufferPoints       = 2;
 input double          StopBufferPoints        = 10;
+input bool            UseImpulseFilter        = false;
+input double          MinImpulsePoints        = 300;
+input bool            UseCorrectionRetraceFilter = false;
+input double          MinCorrectionRetracePercent = 30.0;
 
 //--- Inputs: Reaction level (second touch)
 input bool            UseSecondTouchFilter    = true;
@@ -46,6 +50,19 @@ input bool            UseRiskReward           = false;
 input double          RiskReward              = 2.0;
 input int             MaxTradesPerDay         = 1;
 input int             SlippagePoints          = 10;
+
+//--- Inputs: Trade management (multi-TP / BE / trailing)
+input bool            UseMultiTP              = true;
+input double          TP1RiskReward           = 1.0;
+input double          TP1ClosePercent         = 50.0;
+input bool            UseIndicationAsTP2      = true;
+input double          TP2RiskReward           = 3.0;
+input bool            MoveSLToBEOnTP1         = true;
+input double          BEBufferPoints          = 2;
+input bool            UseTrailingAfterTP1     = false;
+input double          TrailingStartRR         = 2.0;
+input double          TrailingDistancePoints  = 200;
+input double          TrailingStepPoints      = 20;
 
 //--- Inputs: Trade identifiers
 input ulong           MagicNumber             = 65002;
@@ -95,12 +112,19 @@ datetime     g_indicationSwingTime    = 0;
 double       g_invalidationLevel      = 0.0;
 double       g_correctionExtreme      = 0.0;
 datetime     g_correctionTime         = 0;
+double       g_impulseRangePoints     = 0.0;
 int          g_touchCount             = 0;
 bool         g_touchReady             = true;
 int          g_tradesToday            = 0;
 int          g_lastTradeDay           = -1;
 SessionWindow g_london;
 SessionWindow g_newyork;
+ulong        g_positionTicket         = 0;
+int          g_positionDirection      = DIR_NONE;
+double       g_entryPrice             = 0.0;
+double       g_initialStop            = 0.0;
+double       g_initialRisk            = 0.0;
+bool         g_tp1Hit                 = false;
 
 //+------------------------------------------------------------------+
 //| Utility: Parse time string "HH:MM"                                |
@@ -384,6 +408,143 @@ bool HasOpenPosition()
 }
 
 //+------------------------------------------------------------------+
+//| Utility: Get managed position ticket                              |
+//+------------------------------------------------------------------+
+bool GetManagedPosition(ulong &ticket)
+{
+   int total = PositionsTotal();
+   for(int i = total - 1; i >= 0; i--)
+   {
+      ulong t = PositionGetTicket(i);
+      if(t == 0)
+         continue;
+      if(!PositionSelectByTicket(t))
+         continue;
+
+      string symbol = PositionGetString(POSITION_SYMBOL);
+      long magic = PositionGetInteger(POSITION_MAGIC);
+      if(symbol == _Symbol && magic == (long)MagicNumber)
+      {
+         ticket = t;
+         return true;
+      }
+   }
+
+   return false;
+}
+
+//+------------------------------------------------------------------+
+//| Utility: Manage open position (TP1/BE/Trailing)                   |
+//+------------------------------------------------------------------+
+void ManageOpenPosition()
+{
+   ulong ticket;
+   if(!GetManagedPosition(ticket))
+   {
+      g_positionTicket = 0;
+      return;
+   }
+
+   if(!PositionSelectByTicket(ticket))
+      return;
+
+   long type = PositionGetInteger(POSITION_TYPE);
+   int dir = (type == POSITION_TYPE_BUY) ? DIR_BUY : DIR_SELL;
+   double entry = PositionGetDouble(POSITION_PRICE_OPEN);
+   double sl = PositionGetDouble(POSITION_SL);
+   double tp = PositionGetDouble(POSITION_TP);
+   double volume = PositionGetDouble(POSITION_VOLUME);
+
+   if(ticket != g_positionTicket)
+   {
+      g_positionTicket = ticket;
+      g_positionDirection = dir;
+      g_entryPrice = entry;
+      g_initialStop = sl;
+      g_initialRisk = MathAbs(entry - sl);
+      g_tp1Hit = false;
+   }
+
+   if(g_initialRisk <= 0.0 && sl > 0.0)
+      g_initialRisk = MathAbs(entry - sl);
+
+   double price = (dir == DIR_BUY) ? SymbolInfoDouble(_Symbol, SYMBOL_BID)
+                                   : SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+
+   if(UseMultiTP && !g_tp1Hit && g_initialRisk > 0.0)
+   {
+      double tp1 = (dir == DIR_BUY) ? entry + g_initialRisk * TP1RiskReward
+                                    : entry - g_initialRisk * TP1RiskReward;
+
+      if((dir == DIR_BUY && price >= tp1) || (dir == DIR_SELL && price <= tp1))
+      {
+         double closeVolume = volume * (TP1ClosePercent / 100.0);
+         closeVolume = NormalizeLot(closeVolume);
+         double minLot = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN);
+         if(closeVolume >= volume - (minLot * 0.5))
+         {
+            g_trade.PositionClose(_Symbol);
+         }
+         else if(closeVolume >= minLot)
+         {
+            g_trade.PositionClosePartial(_Symbol, closeVolume);
+         }
+
+         if(MoveSLToBEOnTP1)
+         {
+            double be = entry;
+            if(BEBufferPoints > 0)
+               be = (dir == DIR_BUY) ? entry + BEBufferPoints * _Point
+                                     : entry - BEBufferPoints * _Point;
+
+            if(dir == DIR_BUY)
+            {
+               if(sl < be)
+                  g_trade.PositionModify(_Symbol, be, tp);
+            }
+            else
+            {
+               if(sl > be || sl == 0.0)
+                  g_trade.PositionModify(_Symbol, be, tp);
+            }
+         }
+
+         g_tp1Hit = true;
+      }
+   }
+
+   if(UseTrailingAfterTP1 && g_initialRisk > 0.0)
+   {
+      if(!UseMultiTP || g_tp1Hit)
+      {
+         double startLevel = (dir == DIR_BUY) ? entry + g_initialRisk * TrailingStartRR
+                                              : entry - g_initialRisk * TrailingStartRR;
+
+         if((dir == DIR_BUY && price >= startLevel) || (dir == DIR_SELL && price <= startLevel))
+         {
+            double trailDist = TrailingDistancePoints * _Point;
+            double trailStep = TrailingStepPoints * _Point;
+            if(trailDist <= 0.0)
+               return;
+
+            double newSL = (dir == DIR_BUY) ? price - trailDist : price + trailDist;
+
+            if(dir == DIR_BUY)
+            {
+               if(sl == 0.0 || newSL > sl + trailStep)
+                  g_trade.PositionModify(_Symbol, newSL, tp);
+            }
+            else
+            {
+               if(sl == 0.0 || newSL < sl - trailStep)
+                  g_trade.PositionModify(_Symbol, newSL, tp);
+            }
+         }
+      }
+   }
+}
+
+//+------------------------------------------------------------------+
 //| Utility: Normalize lot size                                       |
 //+------------------------------------------------------------------+
 int GetVolumeDigits()
@@ -489,6 +650,7 @@ void ResetState()
    g_invalidationLevel = 0.0;
    g_correctionExtreme = 0.0;
    g_correctionTime = 0;
+   g_impulseRangePoints = 0.0;
    g_touchCount = 0;
    g_touchReady = true;
 }
@@ -519,9 +681,33 @@ bool CanTradeToday()
 double ComputeTakeProfit(const int dir, const double entry, const double stopLoss)
 {
    double risk = MathAbs(entry - stopLoss);
+   if(risk <= 0.0)
+      return 0.0;
+
    double tp = 0.0;
 
-   if(UseRiskReward || risk <= 0.0)
+   if(UseMultiTP)
+   {
+      if(UseIndicationAsTP2)
+      {
+         if(dir == DIR_BUY && g_indicationLevel > entry)
+            tp = g_indicationLevel;
+         else if(dir == DIR_SELL && g_indicationLevel < entry)
+            tp = g_indicationLevel;
+      }
+
+      if(tp == 0.0)
+      {
+         if(dir == DIR_BUY)
+            tp = entry + risk * TP2RiskReward;
+         else
+            tp = entry - risk * TP2RiskReward;
+      }
+
+      return tp;
+   }
+
+   if(UseRiskReward)
    {
       if(dir == DIR_BUY)
          tp = entry + risk * RiskReward;
@@ -583,7 +769,14 @@ bool ExecuteTrade(const int dir, const double stopLossRaw)
       result = g_trade.Sell(lot, _Symbol, 0.0, stopLoss, takeProfit, TradeComment);
 
    if(result)
+   {
       g_tradesToday++;
+      g_entryPrice = entry;
+      g_initialStop = stopLoss;
+      g_initialRisk = MathAbs(entry - stopLoss);
+      g_tp1Hit = false;
+      g_positionTicket = 0;
+   }
 
    return result;
 }
@@ -618,18 +811,19 @@ void OnDeinit(const int reason)
 //+------------------------------------------------------------------+
 void OnTick()
 {
-   if(!IsSessionAllowed())
-      return;
-
-   if(!CanTradeToday())
-      return;
-
+   ManageOpenPosition();
    if(HasOpenPosition())
    {
       // Only one position at a time per symbol/magic
       g_state = STATE_IDLE;
       return;
    }
+
+   if(!IsSessionAllowed())
+      return;
+
+   if(!CanTradeToday())
+      return;
 
    // Determine bias on higher timeframe
    SwingPoint lastHigh;
@@ -660,9 +854,12 @@ void OnTick()
    double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
    double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
    double buffer = IndicationBufferPoints * _Point;
-
    if(g_state == STATE_IDLE)
    {
+      double impulsePoints = MathAbs(lastHigh.price - lastLow.price) / _Point;
+      if(UseImpulseFilter && impulsePoints < MinImpulsePoints)
+         return;
+
       if(trendDir == DIR_BUY && lastHigh.time != g_indicationSwingTime)
       {
          if(bid > lastHigh.price + buffer)
@@ -673,6 +870,7 @@ void OnTick()
             g_indicationTime = TimeCurrent();
             g_indicationSwingTime = lastHigh.time;
             g_invalidationLevel = lastLow.price - buffer;
+            g_impulseRangePoints = impulsePoints;
             g_touchCount = 0;
             g_touchReady = true;
          }
@@ -687,6 +885,7 @@ void OnTick()
             g_indicationTime = TimeCurrent();
             g_indicationSwingTime = lastLow.time;
             g_invalidationLevel = lastHigh.price + buffer;
+            g_impulseRangePoints = impulsePoints;
             g_touchCount = 0;
             g_touchReady = true;
          }
@@ -759,8 +958,18 @@ void OnTick()
             return;
          }
 
+         bool correctionOK = true;
+         if(UseCorrectionRetraceFilter && g_impulseRangePoints > 0.0)
+         {
+            double correctionDepthPoints = (g_indicationLevel - g_correctionExtreme) / _Point;
+            double correctionPercent = (correctionDepthPoints / g_impulseRangePoints) * 100.0;
+            if(correctionPercent < MinCorrectionRetracePercent)
+               correctionOK = false;
+         }
+
          SwingPoint entrySwingHigh;
-         if(GetLastSwing(EntryTimeframe, SwingLeft, SwingRight, MaxSwingBars, true, entrySwingHigh) &&
+         if(correctionOK &&
+            GetLastSwing(EntryTimeframe, SwingLeft, SwingRight, MaxSwingBars, true, entrySwingHigh) &&
             entrySwingHigh.time > g_correctionTime)
          {
             if(bid > entrySwingHigh.price + (EntryBufferPoints * _Point))
@@ -788,8 +997,18 @@ void OnTick()
             return;
          }
 
+         bool correctionOK = true;
+         if(UseCorrectionRetraceFilter && g_impulseRangePoints > 0.0)
+         {
+            double correctionDepthPoints = (g_correctionExtreme - g_indicationLevel) / _Point;
+            double correctionPercent = (correctionDepthPoints / g_impulseRangePoints) * 100.0;
+            if(correctionPercent < MinCorrectionRetracePercent)
+               correctionOK = false;
+         }
+
          SwingPoint entrySwingLow;
-         if(GetLastSwing(EntryTimeframe, SwingLeft, SwingRight, MaxSwingBars, false, entrySwingLow) &&
+         if(correctionOK &&
+            GetLastSwing(EntryTimeframe, SwingLeft, SwingRight, MaxSwingBars, false, entrySwingLow) &&
             entrySwingLow.time > g_correctionTime)
          {
             if(bid < entrySwingLow.price - (EntryBufferPoints * _Point))
