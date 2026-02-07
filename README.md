@@ -46,6 +46,15 @@ live bot status once the server is running.
 npm run run:once
 ```
 
+## Auto-restart (pm2)
+If you want the bot to auto-restart, use pm2:
+```bash
+npm install -g pm2
+pm2 start ecosystem.config.cjs
+pm2 save
+pm2 startup
+```
+
 ## API Endpoints
 - `GET /api/status` - current bot status and last run summary
 - `GET /api/signals?limit=5` - most recent signals
@@ -175,6 +184,16 @@ To stop it:
 ```bash
 node skills/forward-test/forward-test.js stop
 ```
+
+### Auto-restart (pm2)
+If you want the bot to auto-restart on crashes or reboots:
+```bash
+npm install -g pm2
+pm2 start ecosystem.config.cjs
+pm2 save
+pm2 startup
+```
+The bot reads settings from `.env` on startup.
 
 Performance notes:
 - Evaluation uses entry timeframe candles and assumes **stop-loss is hit first**
