@@ -8,61 +8,116 @@
 
 #include <Trade/Trade.mqh>
 
-//--- Inputs: Timeframes
+// =========================
+// SYMBOL / BROKER SETTINGS
+// =========================
+input string   TradeSymbol              = "XAUUSD+";
+input int      GoldDigits               = 2;
+input double   GoldContractSize          = 100.0;
+input double   CommissionPerLotRoundTurn = 5.0;
+input bool     UseBrokerCommission       = true;
+input bool     UseFloatingSpread         = true;
+input int      StopsLevelPoints          = 20;
+
+// =========================
+// TIME / SESSION SETTINGS
+// =========================
+input int      ServerGMTOffset           = 2;
+input bool     AdjustForDST              = true;
+
+// =========================
+// TIMEFRAMES
+// =========================
 input ENUM_TIMEFRAMES BiasTimeframe           = PERIOD_H1;
 input ENUM_TIMEFRAMES HigherTimeframe         = PERIOD_H4;
-input bool            UseHigherTimeframeFilter= false;
-input ENUM_TIMEFRAMES EntryTimeframe          = PERIOD_M15;
+input ENUM_TIMEFRAMES EntryTimeframe          = PERIOD_M5;
 
-//--- Inputs: Swing detection
-input int             SwingLeft               = 2;
-input int             SwingRight              = 2;
-input int             MaxSwingBars            = 300;
+// =========================
+// SWING DETECTION
+// =========================
+input int      SwingLeft                     = 2;
+input int      SwingRight                    = 2;
+input int      MaxSwingBars                  = 300;
 
-//--- Inputs: Indication/Correction/Continuation
-input double          IndicationBufferPoints  = 5;
-input double          MinCorrectionPoints     = 100;
-input double          EntryBufferPoints       = 2;
-input double          StopBufferPoints        = 10;
-input bool            UseImpulseFilter        = false;
-input double          MinImpulsePoints        = 300;
-input bool            UseCorrectionRetraceFilter = false;
-input double          MinCorrectionRetracePercent = 30.0;
+// =========================
+// SCI / ICC CORE LOGIC
+// =========================
+input bool     UseHigherTimeframeFilter      = false;
+input bool     UseSecondTouchFilter          = false;
 
-//--- Inputs: Reaction level (second touch)
-input bool            UseSecondTouchFilter    = true;
-input double          TouchTolerancePoints    = 20;
+// =========================
+// INDICATION / CORRECTION
+// =========================
+input double   IndicationBufferPoints        = 5;
+input int      MinCorrectionPoints           = 250;
+input int      MaxCorrectionPoints           = 800;
+input int      MinImpulsePoints              = 300;
+input int      BreakInFavorPoints            = 100;
+input double   EntryBufferPoints             = 0;
+input double   StopBufferPoints              = 12;
+input bool     UseImpulseFilter              = false;
+input bool     UseCorrectionRetraceFilter    = false;
+input double   MinCorrectionRetracePercent   = 30.0;
 
-//--- Inputs: Session filter (server time)
-input bool            UseSessionFilter        = true;
-input string          LondonSession           = "07:00-11:00";
-input string          NewYorkSession          = "13:00-17:00";
-input bool            UseSessionStartDelay    = true;
-input int             SessionStartDelayMinutes= 120;
-input bool            AvoidFirstMinutes       = true;
-input int             AvoidFirstMinutesCount  = 30;
+// =========================
+// REACTION / LIQUIDITY
+// =========================
+input double   TouchTolerancePoints          = 20;
 
-//--- Inputs: Risk management
-input bool            UseFixedLot             = false;
-input double          FixedLot                = 0.10;
-input double          RiskPercent             = 1.0;
-input bool            UseRiskReward           = false;
-input double          RiskReward              = 2.0;
-input int             MaxTradesPerDay         = 1;
-input int             SlippagePoints          = 10;
+// =========================
+// OPTIONAL SESSION FILTER
+// =========================
+input bool     UseSessionFilter              = true;
+input int      LondonOpenHour                = 7;
+input int      LondonCloseHour               = 16;
+input int      NewYorkOpenHour               = 13;
+input int      NewYorkCloseHour              = 21;
 
-//--- Inputs: Trade management (multi-TP / BE / trailing)
-input bool            UseMultiTP              = true;
-input double          TP1RiskReward           = 1.0;
-input double          TP1ClosePercent         = 50.0;
-input bool            UseIndicationAsTP2      = true;
-input double          TP2RiskReward           = 3.0;
-input bool            MoveSLToBEOnTP1         = true;
-input double          BEBufferPoints          = 2;
-input bool            UseTrailingAfterTP1     = false;
-input double          TrailingStartRR         = 2.0;
-input double          TrailingDistancePoints  = 200;
-input double          TrailingStepPoints      = 20;
+// =========================
+// RISK / TRADE MANAGEMENT
+// =========================
+input double   FixedLotSize                  = 0.10;
+input bool     UseRiskPercent                = false;
+input double   RiskPercent                   = 1.0;
+input bool     UseRiskReward                 = false;
+input double   RiskReward                    = 2.0;
+input int      MaxTradesPerDay               = 1;
+input int      SlippagePoints                = 10;
+input bool     OneTradeAtATime               = true;
+input bool     AllowOppositeTrades           = false;
+
+// =========================
+// TRADE MANAGEMENT (MULTI-TP / BE / TRAILING)
+// =========================
+input bool     UseMultiTP                    = true;
+input double   TP1RiskReward                 = 1.0;
+input double   TP1ClosePercent               = 50.0;
+input bool     UseIndicationAsTP2            = true;
+input double   TP2RiskReward                 = 3.0;
+input bool     MoveSLToBEOnTP1               = true;
+input double   BEBufferPoints                = 2;
+input bool     UseTrailingAfterTP1           = false;
+input double   TrailingStartRR               = 2.0;
+input double   TrailingDistancePoints        = 200;
+input double   TrailingStepPoints            = 20;
+
+// =========================
+// SPREAD / EXECUTION GUARDS
+// =========================
+input bool     UseSpreadFilter               = true;
+input int      MaxAllowedSpreadPoints        = 60;
+
+// =========================
+// BACKTESTING ACCURACY
+// =========================
+input bool     UseRealTickMode               = true;
+input bool     DisableVisualBacktest         = true;
+
+// =========================
+// DEBUG / LOGGING
+// =========================
+input bool     EnableDebugLogs               = false;
+input bool     PrintTradeReasons             = true;
 
 //--- Inputs: Trade identifiers
 input ulong           MagicNumber             = 65002;
@@ -104,6 +159,7 @@ struct SessionWindow
 //| Global variables                                                  |
 //+------------------------------------------------------------------+
 CTrade       g_trade;
+string       g_symbol                 = "";
 ICCState     g_state                  = STATE_IDLE;
 int          g_direction              = DIR_NONE;
 double       g_indicationLevel        = 0.0;
@@ -193,8 +249,18 @@ bool IsSessionAllowed()
    if(!UseSessionFilter)
       return true;
 
+   int offset = ServerGMTOffset;
+   if(AdjustForDST)
+   {
+      double diff = (double)(TimeCurrent() - TimeGMT()) / 3600.0;
+      int rounded = (int)MathRound(diff);
+      if(rounded != 0)
+         offset = rounded;
+   }
+
+   datetime serverTime = TimeGMT() + offset * 3600;
    MqlDateTime dt;
-   TimeToStruct(TimeCurrent(), dt);
+   TimeToStruct(serverTime, dt);
    if(dt.day_of_week == 0 || dt.day_of_week == 6)
       return false;
 
@@ -204,22 +270,6 @@ bool IsSessionAllowed()
 
    if(!inLondon && !inNY)
       return false;
-
-   if(UseSessionStartDelay)
-   {
-      if(inLondon && minuteOfDay < g_london.startMin + SessionStartDelayMinutes)
-         return false;
-      if(inNY && minuteOfDay < g_newyork.startMin + SessionStartDelayMinutes)
-         return false;
-   }
-
-   if(AvoidFirstMinutes)
-   {
-      if(inLondon && minuteOfDay < g_london.startMin + AvoidFirstMinutesCount)
-         return false;
-      if(inNY && minuteOfDay < g_newyork.startMin + AvoidFirstMinutesCount)
-         return false;
-   }
 
    return true;
 }
@@ -545,6 +595,39 @@ void ManageOpenPosition()
 }
 
 //+------------------------------------------------------------------+
+//| Utility: Spread filter                                             |
+//+------------------------------------------------------------------+
+bool IsSpreadAllowed()
+{
+   if(!UseSpreadFilter)
+      return true;
+
+   double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+   double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+   if(bid <= 0.0 || ask <= 0.0)
+      return false;
+
+   double spreadPoints = (ask - bid) / _Point;
+   if(!UseFloatingSpread)
+   {
+      int spread = (int)SymbolInfoInteger(_Symbol, SYMBOL_SPREAD);
+      if(spread > 0)
+         spreadPoints = spread;
+   }
+
+   return (spreadPoints <= MaxAllowedSpreadPoints);
+}
+
+//+------------------------------------------------------------------+
+//| Utility: Log helper                                               |
+//+------------------------------------------------------------------+
+void LogMessage(const string message)
+{
+   if(EnableDebugLogs || PrintTradeReasons)
+      Print(message);
+}
+
+//+------------------------------------------------------------------+
 //| Utility: Normalize lot size                                       |
 //+------------------------------------------------------------------+
 int GetVolumeDigits()
@@ -580,8 +663,8 @@ double NormalizeLot(const double lot)
 //+------------------------------------------------------------------+
 double CalculateLotSize(const double entryPrice, const double stopLoss)
 {
-   if(UseFixedLot)
-      return NormalizeLot(FixedLot);
+   if(!UseRiskPercent)
+      return NormalizeLot(FixedLotSize);
 
    double riskAmount = AccountInfoDouble(ACCOUNT_BALANCE) * (RiskPercent / 100.0);
    double stopDistancePoints = MathAbs(entryPrice - stopLoss) / _Point;
@@ -594,7 +677,13 @@ double CalculateLotSize(const double entryPrice, const double stopLoss)
       return 0.0;
 
    double valuePerPoint = tickValue / tickSize;
-   double lot = riskAmount / (stopDistancePoints * valuePerPoint);
+   double riskPerLot = stopDistancePoints * valuePerPoint;
+   if(UseBrokerCommission && CommissionPerLotRoundTurn > 0.0)
+      riskPerLot += CommissionPerLotRoundTurn;
+   if(riskPerLot <= 0.0)
+      return 0.0;
+
+   double lot = riskAmount / riskPerLot;
    return NormalizeLot(lot);
 }
 
@@ -603,7 +692,9 @@ double CalculateLotSize(const double entryPrice, const double stopLoss)
 //+------------------------------------------------------------------+
 double EnforceStopDistance(const int dir, const double entry, const double stopLoss)
 {
-   int stopsLevel = (int)SymbolInfoInteger(_Symbol, SYMBOL_TRADE_STOPS_LEVEL);
+   int stopsLevel = StopsLevelPoints;
+   if(stopsLevel <= 0)
+      stopsLevel = (int)SymbolInfoInteger(_Symbol, SYMBOL_TRADE_STOPS_LEVEL);
    double minDistance = stopsLevel * _Point;
    double sl = stopLoss;
 
@@ -790,10 +881,30 @@ int OnInit()
    g_trade.SetDeviationInPoints(SlippagePoints);
    g_trade.SetTypeFillingBySymbol(_Symbol);
 
-   g_london.valid = false;
-   g_newyork.valid = false;
-   ParseSession(LondonSession, g_london);
-   ParseSession(NewYorkSession, g_newyork);
+   g_symbol = TradeSymbol;
+   if(StringLen(g_symbol) == 0)
+      g_symbol = _Symbol;
+
+   if(g_symbol != _Symbol)
+   {
+      Print("TradeSymbol must match chart symbol for accurate pricing.");
+      return(INIT_FAILED);
+   }
+
+   if(GoldDigits > 0 && _Digits != GoldDigits && EnableDebugLogs)
+      Print("GoldDigits input differs from chart digits.");
+
+   g_london.startMin = LondonOpenHour * 60;
+   g_london.endMin = LondonCloseHour * 60;
+   g_london.valid = true;
+   g_newyork.startMin = NewYorkOpenHour * 60;
+   g_newyork.endMin = NewYorkCloseHour * 60;
+   g_newyork.valid = true;
+
+   if(EnableDebugLogs && !UseRealTickMode)
+      Print("For accuracy, use real ticks in Strategy Tester.");
+   if(EnableDebugLogs && !DisableVisualBacktest)
+      Print("For accuracy, disable visual backtest.");
 
    return(INIT_SUCCEEDED);
 }
@@ -816,7 +927,8 @@ void OnTick()
    {
       // Only one position at a time per symbol/magic
       g_state = STATE_IDLE;
-      return;
+      if(OneTradeAtATime || !AllowOppositeTrades)
+         return;
    }
 
    if(!IsSessionAllowed())
@@ -958,10 +1070,17 @@ void OnTick()
             return;
          }
 
+         double correctionDepthPoints = (g_indicationLevel - g_correctionExtreme) / _Point;
+         if(MaxCorrectionPoints > 0 && correctionDepthPoints > MaxCorrectionPoints)
+         {
+            LogMessage("Correction exceeded max depth.");
+            ResetState();
+            return;
+         }
+
          bool correctionOK = true;
          if(UseCorrectionRetraceFilter && g_impulseRangePoints > 0.0)
          {
-            double correctionDepthPoints = (g_indicationLevel - g_correctionExtreme) / _Point;
             double correctionPercent = (correctionDepthPoints / g_impulseRangePoints) * 100.0;
             if(correctionPercent < MinCorrectionRetracePercent)
                correctionOK = false;
@@ -972,10 +1091,16 @@ void OnTick()
             GetLastSwing(EntryTimeframe, SwingLeft, SwingRight, MaxSwingBars, true, entrySwingHigh) &&
             entrySwingHigh.time > g_correctionTime)
          {
-            if(bid > entrySwingHigh.price + (EntryBufferPoints * _Point))
+            double breakBuffer = MathMax(EntryBufferPoints, (double)BreakInFavorPoints);
+            if(bid > entrySwingHigh.price + (breakBuffer * _Point))
             {
                if(!UseSecondTouchFilter || g_touchCount >= 2)
                {
+                  if(!IsSpreadAllowed())
+                  {
+                     LogMessage("Spread too high for entry.");
+                     return;
+                  }
                   double stopLoss = g_correctionExtreme - (StopBufferPoints * _Point);
                   if(ExecuteTrade(DIR_BUY, stopLoss))
                      ResetState();
@@ -997,10 +1122,17 @@ void OnTick()
             return;
          }
 
+         double correctionDepthPoints = (g_correctionExtreme - g_indicationLevel) / _Point;
+         if(MaxCorrectionPoints > 0 && correctionDepthPoints > MaxCorrectionPoints)
+         {
+            LogMessage("Correction exceeded max depth.");
+            ResetState();
+            return;
+         }
+
          bool correctionOK = true;
          if(UseCorrectionRetraceFilter && g_impulseRangePoints > 0.0)
          {
-            double correctionDepthPoints = (g_correctionExtreme - g_indicationLevel) / _Point;
             double correctionPercent = (correctionDepthPoints / g_impulseRangePoints) * 100.0;
             if(correctionPercent < MinCorrectionRetracePercent)
                correctionOK = false;
@@ -1011,10 +1143,16 @@ void OnTick()
             GetLastSwing(EntryTimeframe, SwingLeft, SwingRight, MaxSwingBars, false, entrySwingLow) &&
             entrySwingLow.time > g_correctionTime)
          {
-            if(bid < entrySwingLow.price - (EntryBufferPoints * _Point))
+            double breakBuffer = MathMax(EntryBufferPoints, (double)BreakInFavorPoints);
+            if(bid < entrySwingLow.price - (breakBuffer * _Point))
             {
                if(!UseSecondTouchFilter || g_touchCount >= 2)
                {
+                  if(!IsSpreadAllowed())
+                  {
+                     LogMessage("Spread too high for entry.");
+                     return;
+                  }
                   double stopLoss = g_correctionExtreme + (StopBufferPoints * _Point);
                   if(ExecuteTrade(DIR_SELL, stopLoss))
                      ResetState();
