@@ -23,6 +23,13 @@ Options:
   --initial <number>      (default: 10000)
   --fee-bps <number>      (default: 0)
   --slippage-bps <number> (default: 0)
+  --corr-threshold <num>  (override correction threshold)
+  --swing-pivot <num>     (override swing pivot)
+  --entry-pivot <num>     (override entry pivot)
+  --structure-lookback <num>
+  --structure-swings <num>
+  --min-displacement <num>
+  --min-swing-pct <num>
 `.trim();
 
 const parseArgs = (args) => {
@@ -88,7 +95,8 @@ const runBacktest = async ({
     riskPct,
     initialEquity,
     feeBps,
-    slippageBps
+    slippageBps,
+    strategyOverride
 }) => {
     const [entryCandlesRaw, highCandlesRaw] = await Promise.all([
         blofinClient.fetchCandles({
@@ -106,7 +114,15 @@ const runBacktest = async ({
     const entryCandles = [...entryCandlesRaw].sort((a, b) => a.ts - b.ts);
     const highCandles = [...highCandlesRaw].sort((a, b) => a.ts - b.ts);
 
-    const strategy = config.markets.blofin.strategy;
+    const strategy = Object.entries({
+        ...config.markets.blofin.strategy,
+        ...strategyOverride
+    }).reduce((acc, [key, value]) => {
+        if (value !== undefined) {
+            acc[key] = value;
+        }
+        return acc;
+    }, {});
     let highIndex = 0;
     let equity = initialEquity;
     let peakEquity = initialEquity;
@@ -307,7 +323,30 @@ const main = async () => {
         riskPct: Number(options['risk-pct'] || 0.01),
         initialEquity: Number(options.initial || 10000),
         feeBps: Number(options['fee-bps'] || 0),
-        slippageBps: Number(options['slippage-bps'] || 0)
+        slippageBps: Number(options['slippage-bps'] || 0),
+        strategyOverride: {
+            correctionThreshold: options['corr-threshold']
+                ? Number(options['corr-threshold'])
+                : undefined,
+            swingPivot: options['swing-pivot']
+                ? Number(options['swing-pivot'])
+                : undefined,
+            entryPivot: options['entry-pivot']
+                ? Number(options['entry-pivot'])
+                : undefined,
+            structureLookback: options['structure-lookback']
+                ? Number(options['structure-lookback'])
+                : undefined,
+            structureSwingCount: options['structure-swings']
+                ? Number(options['structure-swings'])
+                : undefined,
+            minDisplacementPct: options['min-displacement']
+                ? Number(options['min-displacement'])
+                : undefined,
+            minSwingPct: options['min-swing-pct']
+                ? Number(options['min-swing-pct'])
+                : undefined
+        }
     });
     console.log(JSON.stringify(result, null, 2));
 };

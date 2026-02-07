@@ -267,6 +267,11 @@ Backtest ICC using recent Blofin candles:
 ```bash
 node skills/icc-backtest/backtest.js --inst BTC-USDT --entry 5m --high 1H --entry-limit 1000 --high-limit 500
 ```
+You can override ICC parameters for sensitivity testing:
+```bash
+node skills/icc-backtest/backtest.js --inst BTC-USDT --entry 5m --high 1H \
+  --entry-limit 6500 --high-limit 800 --corr-threshold 0.25 --swing-pivot 1 --entry-pivot 1
+```
 
 Example:
 - `node /absolute/path/to/this-repo/skills/market-signals/market-signals.js --limit 10`
