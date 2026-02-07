@@ -359,7 +359,7 @@ const main = async () => {
                 ? Number(options['min-swing-pct'])
                 : undefined
         },
-        debug: options.debug === 'true' || options.debug === '1'
+        debug: options.debug === true || options.debug === 'true' || options.debug === '1'
     });
     console.log(JSON.stringify(result, null, 2));
 };
