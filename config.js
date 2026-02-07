@@ -208,15 +208,15 @@ const config = {
                 ),
                 structureSwingCount: parseNumber(
                     process.env.BLOFIN_ICC_STRUCTURE_SWING_COUNT,
-                    3
+                    2
                 ),
                 swingPivot: parseNumber(
                     process.env.BLOFIN_ICC_SWING_PIVOT,
-                    2
+                    1
                 ),
                 entryPivot: parseNumber(
                     process.env.BLOFIN_ICC_ENTRY_PIVOT,
-                    2
+                    1
                 ),
                 minSwingPct: parseNumber(
                     process.env.BLOFIN_ICC_MIN_SWING_PCT,
@@ -224,7 +224,7 @@ const config = {
                 ),
                 correctionThreshold: parseNumber(
                     process.env.BLOFIN_ICC_CORR_THRESHOLD,
-                    0.382
+                    0.1
                 ),
                 minDisplacementPct: parseNumber(
                     process.env.BLOFIN_ICC_MIN_DISPLACEMENT_PCT,

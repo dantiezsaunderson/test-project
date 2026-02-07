@@ -368,7 +368,13 @@ const main = async () => {
     console.log(JSON.stringify(result, null, 2));
 };
 
-main().catch((error) => {
-    console.error('ICC backtest error:', error.message);
-    process.exitCode = 1;
-});
+if (require.main === module) {
+    main().catch((error) => {
+        console.error('ICC backtest error:', error.message);
+        process.exitCode = 1;
+    });
+}
+
+module.exports = {
+    runBacktest
+};

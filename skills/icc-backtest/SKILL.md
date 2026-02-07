@@ -12,6 +12,8 @@ Runs an ICC backtest over the most recent candles from Blofin.
 
 - Backtest BTC/USDT:
   - `node {baseDir}/backtest.js --inst BTC-USDT --entry 5m --high 1H --entry-limit 1000 --high-limit 500`
+- Batch backtest top volume:
+  - `node {baseDir}/batch.js --top 20 --entry 5m --high 1H --entry-limit 1000 --high-limit 500`
 
 ## Notes
 - Uses recent candles only (Blofin API does not expose arbitrary ranges here).
