@@ -251,6 +251,61 @@ const resolvePrice = async (instId, tickerMap) => {
     return toNumber(mark?.markPx || mark?.markPrice || mark?.price || 0, 0);
 };
 
+const updateLossOutcomes = async ({ openPositions, tickerMap }) => {
+    const positionMap = new Map(
+        openPositions.map((position) => [position.instId, getPositionSize(position)])
+    );
+    const trades = await dataStore.getAutoTrades();
+    if (!trades.length) {
+        return false;
+    }
+    const now = new Date().toISOString();
+    let updated = false;
+
+    const resolvedTrades = await Promise.all(
+        trades.map(async (trade) => {
+            if (
+                !trade ||
+                trade.outcome ||
+                trade.status !== 'submitted' ||
+                !trade.instId ||
+                !trade.side ||
+                !Number.isFinite(trade.stopLoss)
+            ) {
+                return trade;
+            }
+            const posSize = positionMap.get(trade.instId) || 0;
+            if (Math.abs(posSize) === 0) {
+                return trade;
+            }
+            const price = await resolvePrice(trade.instId, tickerMap);
+            if (!(price > 0)) {
+                return trade;
+            }
+            const isLoss =
+                trade.side === 'buy'
+                    ? price <= trade.stopLoss
+                    : price >= trade.stopLoss;
+            if (!isLoss) {
+                return trade;
+            }
+            updated = true;
+            return {
+                ...trade,
+                outcome: 'loss',
+                exitReason: 'stop_crossed',
+                exitPrice: price,
+                exitTime: now
+            };
+        })
+    );
+
+    if (updated) {
+        await dataStore.updateAutoTrades(() => resolvedTrades);
+    }
+    return updated;
+};
+
 const runBlofinAutoTrade = async ({ signals, snapshot, reason } = {}) => {
     const settings = config.markets.blofin;
     const now = new Date();
@@ -315,6 +370,20 @@ const runBlofinAutoTrade = async ({ signals, snapshot, reason } = {}) => {
     }
 
     const tickerMap = buildTickerMap(tickers);
+
+    if (settings.autoPauseAfterLoss) {
+        const lossDetected = await updateLossOutcomes({
+            openPositions,
+            tickerMap
+        });
+        const existingLoss = (await dataStore.getAutoTrades()).some(
+            (trade) => trade && trade.outcome === 'loss'
+        );
+        if (lossDetected || existingLoss) {
+            return { status: 'blocked', reason: 'paused_after_loss', actions };
+        }
+    }
+
     const availableUsdt = extractAvailableUsdt(balance);
     const maxNotional = Number.isFinite(settings.maxOrderUsdt)
         ? settings.maxOrderUsdt

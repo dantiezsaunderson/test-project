@@ -164,6 +164,8 @@ const config = {
             autoTradeKillSwitch: process.env.BLOFIN_KILL_SWITCH === 'true',
             autoPauseAfterTrade:
                 process.env.BLOFIN_AUTO_PAUSE_AFTER_TRADE === 'true',
+            autoPauseAfterLoss:
+                process.env.BLOFIN_AUTO_PAUSE_AFTER_LOSS === 'true',
             autoBrackets: process.env.BLOFIN_AUTO_BRACKETS === 'true',
             autoTradeCooldownMinutes: parseNumber(
                 process.env.BLOFIN_AUTO_COOLDOWN_MINUTES,
