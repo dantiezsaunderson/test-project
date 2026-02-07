@@ -249,6 +249,7 @@ Example:
 - `skills/blofin-perps` - Blofin perps scanner + manual order CLI
 - `skills/forward-test` - start/stop forward-test scheduler
 - `skills/fabia-scalping` - AMT/Market Profile scalping model (proxy)
+- `skills/icc-backtest` - backtest ICC on recent candles
 
 ### Fabia Valentina scalping model (proxy)
 This model uses OHLCV candles to approximate Market Profile (POC/VAH/VAL/HVN/LVN)
@@ -259,6 +260,12 @@ auto-trader and scans with the Fabia model.
 Example:
 ```bash
 node skills/fabia-scalping/fabia.js signal --inst BTC-USDT --tf 5m --limit 240
+```
+
+### ICC backtest
+Backtest ICC using recent Blofin candles:
+```bash
+node skills/icc-backtest/backtest.js --inst BTC-USDT --entry 5m --high 1H --entry-limit 1000 --high-limit 500
 ```
 
 Example:
