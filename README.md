@@ -278,6 +278,11 @@ Batch backtest (top volume symbols):
 node skills/icc-backtest/batch.js --top 20 --entry 5m --high 1H --entry-limit 1000 --high-limit 500
 ```
 
+Batch backtest (explicit symbols):
+```bash
+node skills/icc-backtest/batch.js --symbols BTC-USDT,ETH-USDT,SOL-USDT --entry 5m --high 1H --entry-limit 1000 --high-limit 500
+```
+
 Example:
 - `node /absolute/path/to/this-repo/skills/market-signals/market-signals.js --limit 10`
 

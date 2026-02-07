@@ -14,6 +14,7 @@ Usage:
   batch.js --top 20 --entry 5m --high 1H --entry-limit 1000 --high-limit 500
 
 Options:
+  --symbols <a,b,c>       (explicit symbol list)
   --top <number>          (default: 20)
   --min-volume <number>   (default: 0)
   --entry <timeframe>     (default: 5m)
@@ -97,15 +98,31 @@ const runBatch = async (options) => {
             .map((inst) => inst.instId)
     );
 
-    const ranked = tickers
-        .filter((ticker) => instrumentSet.has(ticker.instId))
-        .map((ticker) => ({
-            instId: ticker.instId,
-            volume24h: Number(ticker.volCurrency24h) || 0
-        }))
-        .filter((item) => item.volume24h >= minVolume)
-        .sort((a, b) => b.volume24h - a.volume24h)
-        .slice(0, top);
+    const tickerMap = new Map(
+        tickers.map((ticker) => [ticker.instId, Number(ticker.volCurrency24h) || 0])
+    );
+    const explicitSymbols = options.symbols
+        ? options.symbols
+              .split(',')
+              .map((item) => item.trim())
+              .filter(Boolean)
+        : null;
+    const ranked = explicitSymbols && explicitSymbols.length
+        ? explicitSymbols
+              .filter((instId) => instrumentSet.has(instId))
+              .map((instId) => ({
+                  instId,
+                  volume24h: tickerMap.get(instId) || 0
+              }))
+        : tickers
+              .filter((ticker) => instrumentSet.has(ticker.instId))
+              .map((ticker) => ({
+                  instId: ticker.instId,
+                  volume24h: Number(ticker.volCurrency24h) || 0
+              }))
+              .filter((item) => item.volume24h >= minVolume)
+              .sort((a, b) => b.volume24h - a.volume24h)
+              .slice(0, top);
 
     const results = [];
     for (const item of ranked) {
@@ -142,7 +159,7 @@ const runBatch = async (options) => {
 
 const main = async () => {
     const { options } = parseArgs(process.argv.slice(2));
-    if (!options.top && !options.inst) {
+    if (!options.top && !options.symbols) {
         console.log(helpText);
         return;
     }
