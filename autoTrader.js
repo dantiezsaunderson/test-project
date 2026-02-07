@@ -391,10 +391,18 @@ const runBlofinAutoTrade = async ({ signals, snapshot, reason } = {}) => {
     const hasRiskPct =
         Number.isFinite(settings.riskPerTradePct) &&
         settings.riskPerTradePct > 0;
-    const riskUsdTarget =
-        hasRiskPct && Number.isFinite(availableUsdt)
-            ? availableUsdt * settings.riskPerTradePct
-            : null;
+    let riskUsdTarget = null;
+    if (hasRiskPct && Number.isFinite(availableUsdt)) {
+        riskUsdTarget = availableUsdt * settings.riskPerTradePct;
+    } else if (
+        Number.isFinite(settings.riskPerTradeUsdt) &&
+        settings.riskPerTradeUsdt > 0
+    ) {
+        riskUsdTarget = settings.riskPerTradeUsdt;
+    }
+    if (Number.isFinite(availableUsdt) && riskUsdTarget !== null) {
+        riskUsdTarget = Math.min(riskUsdTarget, availableUsdt);
+    }
     const baseNotional = Number.isFinite(maxNotional)
         ? Math.min(settings.riskPerTradeUsdt, maxNotional)
         : settings.riskPerTradeUsdt;
