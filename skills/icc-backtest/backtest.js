@@ -30,6 +30,7 @@ Options:
   --structure-swings <num>
   --min-displacement <num>
   --min-swing-pct <num>
+  --debug                 (include signal stage counts)
 `.trim();
 
 const parseArgs = (args) => {
@@ -39,8 +40,12 @@ const parseArgs = (args) => {
         const arg = args[i];
         if (arg.startsWith('--')) {
             const key = arg.replace(/^--/, '');
-            options[key] = args[i + 1];
-            i += 1;
+            if (key === 'debug') {
+                options[key] = true;
+            } else {
+                options[key] = args[i + 1];
+                i += 1;
+            }
         } else {
             rest.push(arg);
         }
@@ -96,7 +101,8 @@ const runBacktest = async ({
     initialEquity,
     feeBps,
     slippageBps,
-    strategyOverride
+    strategyOverride,
+    debug
 }) => {
     const [entryCandlesRaw, highCandlesRaw] = await Promise.all([
         blofinClient.fetchCandles({
@@ -129,6 +135,7 @@ const runBacktest = async ({
     let maxDrawdown = 0;
     const trades = [];
     const equityCurve = [];
+    const statusCounts = {};
 
     let openTrade = null;
 
@@ -222,6 +229,10 @@ const runBacktest = async ({
         const highSlice = highCandles.slice(0, highIndex + 1);
         const entrySlice = entryCandles.slice(0, i + 1);
         const signal = buildIccSignal(highSlice, entrySlice, strategy);
+        if (signal && debug) {
+            const key = signal.status || 'UNKNOWN';
+            statusCounts[key] = (statusCounts[key] || 0) + 1;
+        }
         if (!signal || !['BUY', 'SELL'].includes(signal.status)) {
             continue;
         }
@@ -303,7 +314,8 @@ const runBacktest = async ({
             profitFactor: Number.isFinite(profitFactor) ? profitFactor : 0
         },
         trades: trades.slice(-20),
-        equityCurve: equityCurve.slice(-100)
+        equityCurve: equityCurve.slice(-100),
+        signalStats: debug ? statusCounts : undefined
     };
 };
 
@@ -346,7 +358,8 @@ const main = async () => {
             minSwingPct: options['min-swing-pct']
                 ? Number(options['min-swing-pct'])
                 : undefined
-        }
+        },
+        debug: options.debug === 'true' || options.debug === '1'
     });
     console.log(JSON.stringify(result, null, 2));
 };
