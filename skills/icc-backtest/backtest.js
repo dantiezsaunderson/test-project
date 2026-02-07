@@ -102,20 +102,26 @@ const runBacktest = async ({
     feeBps,
     slippageBps,
     strategyOverride,
-    debug
+    debug,
+    entryCandlesRaw: entryCandlesOverride,
+    highCandlesRaw: highCandlesOverride
 }) => {
-    const [entryCandlesRaw, highCandlesRaw] = await Promise.all([
-        blofinClient.fetchCandles({
-            instId,
-            bar: entryTf,
-            limit: entryLimit
-        }),
-        blofinClient.fetchCandles({
-            instId,
-            bar: highTf,
-            limit: highLimit
-        })
-    ]);
+    let entryCandlesRaw = entryCandlesOverride;
+    let highCandlesRaw = highCandlesOverride;
+    if (!entryCandlesRaw || !highCandlesRaw) {
+        [entryCandlesRaw, highCandlesRaw] = await Promise.all([
+            blofinClient.fetchCandles({
+                instId,
+                bar: entryTf,
+                limit: entryLimit
+            }),
+            blofinClient.fetchCandles({
+                instId,
+                bar: highTf,
+                limit: highLimit
+            })
+        ]);
+    }
 
     const entryCandles = [...entryCandlesRaw].sort((a, b) => a.ts - b.ts);
     const highCandles = [...highCandlesRaw].sort((a, b) => a.ts - b.ts);
@@ -301,6 +307,9 @@ const runBacktest = async ({
                 .reduce((acc, trade) => acc + trade.pnl, 0) || 1
         );
 
+    const totalProfit = equity - initialEquity;
+    const maxDrawdownPct = Math.abs(maxDrawdown);
+
     return {
         summary: {
             instId,
@@ -308,13 +317,16 @@ const runBacktest = async ({
             highTf,
             entryLimit,
             highLimit,
+            startingEquity: initialEquity,
             trades: closedTrades,
             wins,
             losses,
             winRate: closedTrades ? wins / closedTrades : 0,
             endingEquity: equity,
+            totalProfit,
             returnPct: initialEquity > 0 ? (equity - initialEquity) / initialEquity : 0,
-            maxDrawdown: maxDrawdown,
+            maxDrawdown,
+            maxDrawdownPct,
             profitFactor: Number.isFinite(profitFactor) ? profitFactor : 0
         },
         trades: trades.slice(-20),
