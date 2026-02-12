@@ -3,30 +3,207 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Agent Test Project</title>
+    <title>Clawd Bot Trading Assistant</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <div class="container">
-        <header>
-            <h1>AI Agent Test Project</h1>
-            <p>Successfully deployed by the AI Agent</p>
-        </header>
-        <main>
-            <div class="card">
-                <h2>Project Information</h2>
-                <p>This is a test project created to verify that the AI agent can successfully:</p>
-                <ul>
-                    <li>Create a new project</li>
-                    <li>Push it to GitHub</li>
-                    <li>Deploy it to Render</li>
-                </ul>
-                <p>Deployment timestamp: <span id="timestamp"></span></p>
+        <header class="hero">
+            <div class="badge">Clawd Bot</div>
+            <h1>Personal trading assistant for every market</h1>
+            <p>
+                Set up your own Clawd bot powered by
+                <a href="https://openclaw.ai" target="_blank" rel="noopener">openclaw.ai</a>
+                to research, monitor, and alert across crypto, forex, collectibles, and meme tokens.
+            </p>
+            <div class="cta-row">
+                <a class="btn primary" href="https://openclaw.ai" target="_blank" rel="noopener">
+                    OpenClaw platform
+                </a>
+                <button class="btn ghost" id="copyPlan" type="button">Copy setup plan</button>
             </div>
+            <p class="meta">Local time: <span id="timestamp"></span></p>
+        </header>
+
+        <main>
+            <section class="grid two">
+                <div class="card">
+                    <h2>How Clawd Bot works</h2>
+                    <ol class="steps">
+                        <li><strong>Ingest:</strong> connect prices, order books, on-chain data, and news feeds.</li>
+                        <li><strong>Analyze:</strong> detect regime shifts, anomalies, and sentiment velocity.</li>
+                        <li><strong>Assist:</strong> summarize context, build watchlists, and draft alerts.</li>
+                        <li><strong>Act:</strong> route to paper or live execution with guardrails.</li>
+                    </ol>
+                    <p class="muted">
+                        Use Clawd bot as a research copilot. You decide the trades, it handles the signal flow.
+                    </p>
+                </div>
+                <div class="card">
+                    <h2>What it can do for you</h2>
+                    <ul class="checklist">
+                        <li>Daily market briefs across every watchlist.</li>
+                        <li>Event alerts for listings, earnings, and macro releases.</li>
+                        <li>Real-time anomaly detection and spread monitoring.</li>
+                        <li>Inventory tracking for collectibles and graded cards.</li>
+                        <li>Portfolio health snapshots with risk guardrails.</li>
+                    </ul>
+                </div>
+            </section>
+
+            <section class="card">
+                <h2>Market edge playbook</h2>
+                <p class="muted">Select a market to see data-driven edge ideas.</p>
+                <div class="market-selector">
+                    <button class="pill active" data-market="crypto" type="button">Crypto</button>
+                    <button class="pill" data-market="forex" type="button">Forex</button>
+                    <button class="pill" data-market="collectibles" type="button">Pokemon cards</button>
+                    <button class="pill" data-market="meme" type="button">Meme coins</button>
+                </div>
+                <div class="market-panel">
+                    <h3>Edges for <span id="marketName">Crypto</span></h3>
+                    <p id="marketSummary" class="muted"></p>
+                    <ul id="edgeList" class="edge-list"></ul>
+                </div>
+            </section>
+
+            <section class="card">
+                <h2>How to use the bot (quick guide)</h2>
+                <ol class="steps">
+                    <li><strong>Start a workspace:</strong> log into <a href="https://openclaw.ai" target="_blank" rel="noopener">openclaw.ai</a> and create a Clawd bot workspace.</li>
+                    <li><strong>Define your thesis:</strong> write short prompts for each market (timeframe, risk level, and goals).</li>
+                    <li><strong>Connect data:</strong> add price feeds, news, social, on-chain, or marketplace comps.</li>
+                    <li><strong>Build watchlists:</strong> set tickers, pairs, or collectible sets with priority tags.</li>
+                    <li><strong>Set alerts:</strong> define thresholds for volatility, spread widening, or sentiment spikes.</li>
+                    <li><strong>Configure guardrails:</strong> add max drawdown limits, position sizing rules, and a kill switch.</li>
+                    <li><strong>Paper test:</strong> run the bot in simulation for at least two weeks to validate signals.</li>
+                    <li><strong>Review weekly:</strong> track hit rates, false positives, and adjust thresholds.</li>
+                    <li><strong>Go live carefully:</strong> scale slowly once the bot performs reliably.</li>
+                </ol>
+                <p class="muted">
+                    Keep humans in the loop. Use Clawd bot for research and alerts, then make final decisions.
+                </p>
+            </section>
+
+            <section class="card">
+                <h2>Public data sources to connect</h2>
+                <p class="muted">
+                    Examples of public or free-tier APIs. Always check rate limits and terms of service.
+                </p>
+                <div class="resource-grid">
+                    <div>
+                        <h3>API directories</h3>
+                        <ul class="resource-list">
+                            <li>
+                                <a href="https://freeapis.juheapi.com/apis" target="_blank" rel="noopener">Juhe free API directory</a>
+                                <span class="muted">Curated list of free APIs.</span>
+                            </li>
+                            <li>
+                                <a href="https://github.com/public-apis/public-apis" target="_blank" rel="noopener">public-apis on GitHub</a>
+                                <span class="muted">Large index of public APIs.</span>
+                            </li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h3>Crypto</h3>
+                        <ul class="resource-list">
+                            <li><a href="https://www.coingecko.com/en/api" target="_blank" rel="noopener">CoinGecko</a> <span class="muted">pricing, markets, metadata.</span></li>
+                            <li><a href="https://min-api.cryptocompare.com/" target="_blank" rel="noopener">CryptoCompare</a> <span class="muted">prices, volume, news.</span></li>
+                            <li><a href="https://www.binance.com/en/binance-api" target="_blank" rel="noopener">Binance API</a> <span class="muted">spot and derivatives data.</span></li>
+                            <li><a href="https://docs.cloud.coinbase.com/exchange/docs/welcome" target="_blank" rel="noopener">Coinbase Exchange</a> <span class="muted">order books and trades.</span></li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h3>FX + Macro</h3>
+                        <ul class="resource-list">
+                            <li><a href="https://fred.stlouisfed.org/docs/api/fred/" target="_blank" rel="noopener">FRED</a> <span class="muted">macro and rates data.</span></li>
+                            <li><a href="https://www.alphavantage.co/documentation/" target="_blank" rel="noopener">Alpha Vantage</a> <span class="muted">FX, equities, indicators.</span></li>
+                            <li><a href="https://twelvedata.com/documentation" target="_blank" rel="noopener">Twelve Data</a> <span class="muted">FX and equity prices.</span></li>
+                            <li><a href="https://open.er-api.com/" target="_blank" rel="noopener">ExchangeRate API</a> <span class="muted">free FX rates endpoint.</span></li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h3>Collectibles</h3>
+                        <ul class="resource-list">
+                            <li><a href="https://docs.ebay.com/" target="_blank" rel="noopener">eBay Browse API</a> <span class="muted">marketplace listings.</span></li>
+                            <li><a href="https://pokemontcg.io/" target="_blank" rel="noopener">Pokemon TCG API</a> <span class="muted">sets and card metadata.</span></li>
+                            <li><a href="https://docs.tcgplayer.com/" target="_blank" rel="noopener">TCGplayer API</a> <span class="muted">pricing data (approval required).</span></li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h3>Sentiment + News</h3>
+                        <ul class="resource-list">
+                            <li><a href="https://newsapi.org/docs" target="_blank" rel="noopener">NewsAPI</a> <span class="muted">news aggregation.</span></li>
+                            <li><a href="https://developers.google.com/trends" target="_blank" rel="noopener">Google Trends</a> <span class="muted">interest and search momentum.</span></li>
+                            <li><a href="https://alternative.me/crypto/fear-and-greed-index/" target="_blank" rel="noopener">Fear &amp; Greed Index</a> <span class="muted">crypto sentiment signal.</span></li>
+                        </ul>
+                    </div>
+                </div>
+                <p class="muted small">
+                    Most providers require API keys and have usage limits. Start with free tiers, then upgrade
+                    as your data needs grow.
+                </p>
+            </section>
+
+            <section class="card" id="botStatusCard">
+                <div class="status-header">
+                    <h2>Live bot status</h2>
+                    <button class="btn ghost" id="refreshStatus" type="button">Refresh</button>
+                </div>
+                <div class="status-grid">
+                    <div>
+                        <span class="label">Status</span>
+                        <span class="status-badge offline" id="statusBadge">Offline</span>
+                    </div>
+                    <div>
+                        <span class="label">Last run</span>
+                        <span id="lastRun">--</span>
+                    </div>
+                    <div>
+                        <span class="label">Signals stored</span>
+                        <span id="signalCount">--</span>
+                    </div>
+                </div>
+                <div class="signal-panel">
+                    <h3>Recent signals</h3>
+                    <ul id="signalList" class="edge-list"></ul>
+                    <p id="signalEmpty" class="muted">No signals yet. Run the bot to generate alerts.</p>
+                </div>
+                <p class="muted small">
+                    Start the local server with <code>npm start</code> to enable live status and alerts.
+                </p>
+            </section>
+
+            <section class="grid two">
+                <div class="card">
+                    <h2>Guardrails first</h2>
+                    <ul class="checklist">
+                        <li>Default to paper trading while calibrating signals.</li>
+                        <li>Use position sizing, max drawdown, and kill switches.</li>
+                        <li>Keep keys and API secrets in a secure vault.</li>
+                        <li>Require multiple confirmations before alerts go live.</li>
+                        <li>Track performance by market regime and liquidity.</li>
+                    </ul>
+                </div>
+                <div class="card">
+                    <h2>Recommended setup</h2>
+                    <ol class="steps">
+                        <li>Define watchlists and thesis templates per market.</li>
+                        <li>Connect data sources and set alert thresholds.</li>
+                        <li>Build daily and weekly review dashboards.</li>
+                        <li>Automate summaries to Slack, email, or mobile.</li>
+                        <li>Iterate weekly based on signal hit rates.</li>
+                    </ol>
+                    <p class="muted">
+                        This is research tooling, not financial advice. Always manage risk.
+                    </p>
+                </div>
+            </section>
         </main>
+
         <footer>
-            <p>Created for user: dantiezsaunderson</p>
-            <p>Powered by AI Agent</p>
+            <p>Built for personal research across global markets.</p>
+            <p>Not financial advice. Always do your own diligence.</p>
         </footer>
     </div>
     <script src="script.js"></script>
