@@ -306,8 +306,18 @@ const updateLossOutcomes = async ({ openPositions, tickerMap }) => {
     return updated;
 };
 
-const runBlofinAutoTrade = async ({ signals, snapshot, reason } = {}) => {
-    const settings = config.markets.blofin;
+const runAutoTradeWithSettings = async ({
+    signals,
+    snapshot,
+    reason,
+    overrides,
+    strategyLabel
+} = {}) => {
+    const baseSettings = config.markets.blofin;
+    const settings = {
+        ...baseSettings,
+        ...(overrides || {})
+    };
     const now = new Date();
     const actions = [];
     const skipped = [];
@@ -519,6 +529,7 @@ const runBlofinAutoTrade = async ({ signals, snapshot, reason } = {}) => {
             size,
             price,
             notional,
+            strategy: strategyLabel || entry.strategy || 'icc',
             stopLoss: Number.isFinite(stopLoss) ? stopLoss : undefined,
             takeProfit: Number.isFinite(takeProfit) ? takeProfit : undefined,
             takeProfitLevels: Array.isArray(entry.signal?.takeProfitLevels)
@@ -652,6 +663,10 @@ const runBlofinAutoTrade = async ({ signals, snapshot, reason } = {}) => {
     return { status: 'executed', actions, skipped };
 };
 
+const runBlofinAutoTrade = async ({ signals, snapshot, reason } = {}) =>
+    runAutoTradeWithSettings({ signals, snapshot, reason });
+
 module.exports = {
-    runBlofinAutoTrade
+    runBlofinAutoTrade,
+    runAutoTradeWithSettings
 };

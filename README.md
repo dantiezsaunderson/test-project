@@ -116,6 +116,8 @@ Key variables (see `.env.example`):
 - `BLOFIN_AUTO_PAUSE_AFTER_TRADE` - pause auto-trading after first live trade
 - `BLOFIN_AUTO_PAUSE_AFTER_LOSS` - pause auto-trading after first losing trade
 - `BLOFIN_AUTO_BRACKETS` - place TP/SL brackets after auto entry
+- `BLOFIN_FABIA_DRY_TEST` - run Fabia dry-test alongside ICC
+- `BLOFIN_FABIA_DRY_MAX_ACTIONS` - limit Fabia dry trades per cycle (0 = unlimited)
 - `BLOFIN_RISK_USDT` - per-trade **risk** in USDT when `BLOFIN_RISK_PCT` is not set
 - `BLOFIN_RISK_PCT` - percent-of-available USDT per trade (e.g. 0.03 = 3%)
   - When `BLOFIN_RISK_PCT` is set and a USDT balance is available, it overrides `BLOFIN_RISK_USDT`.

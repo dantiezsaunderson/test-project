@@ -243,43 +243,95 @@ const generateBlofinSignals = (current, previous) => {
         });
     }
 
-    return current.signals.map((entry) => {
+    const signals = [];
+    current.signals.forEach((entry) => {
         const signal = entry.signal || {};
         const status = signal.status || 'WAIT';
         const bias = signal.bias || 'neutral';
         const strategy = entry.strategy || current.strategy || 'icc';
 
-        return createSignal(
-            'blofin',
-            'icc-scan',
-            `${entry.instId} ${strategy.toUpperCase()} ${status} (${bias}).`,
-            {
-                instId: entry.instId,
-                status,
-                bias,
-                strategy,
-                reasons: signal.reasons,
-                indicationLevel: signal.indicationLevel,
-                structureHigh: signal.structureHigh,
-                structureLow: signal.structureLow,
-                correctionExtreme: signal.correctionExtreme,
-                entryBreak: signal.entryBreak,
-                stopLoss: signal.stopLoss,
-                takeProfit: signal.takeProfit,
-                takeProfitLevels: signal.takeProfitLevels,
-                takeProfitSplits: signal.takeProfitSplits,
-                liquidityTargets: signal.liquidityTargets,
-                correctionLiquidity: signal.correctionLiquidity,
-                liquiditySweep: signal.liquiditySweep,
-                marketState: signal.marketState,
-                session: signal.session,
-                profile: signal.profile,
-                lastPrice: entry.last,
-                volume24h: entry.volume24h,
-                timeframes: entry.timeframes
-            }
+        signals.push(
+            createSignal(
+                'blofin',
+                'icc-scan',
+                `${entry.instId} ${strategy.toUpperCase()} ${status} (${bias}).`,
+                {
+                    instId: entry.instId,
+                    status,
+                    bias,
+                    strategy,
+                    reasons: signal.reasons,
+                    indicationLevel: signal.indicationLevel,
+                    structureHigh: signal.structureHigh,
+                    structureLow: signal.structureLow,
+                    correctionExtreme: signal.correctionExtreme,
+                    entryBreak: signal.entryBreak,
+                    stopLoss: signal.stopLoss,
+                    takeProfit: signal.takeProfit,
+                    takeProfitLevels: signal.takeProfitLevels,
+                    takeProfitSplits: signal.takeProfitSplits,
+                    liquidityTargets: signal.liquidityTargets,
+                    correctionLiquidity: signal.correctionLiquidity,
+                    liquiditySweep: signal.liquiditySweep,
+                    marketState: signal.marketState,
+                    session: signal.session,
+                    profile: signal.profile,
+                    lastPrice: entry.last,
+                    volume24h: entry.volume24h,
+                    timeframes: entry.timeframes
+                }
+            )
         );
+
+        const prev = previousMap.get(entry.instId);
+        const prevPrice = Number(prev?.last || prev?.signal?.lastPrice || prev?.lastPrice);
+        const currPrice = Number(entry.last || signal.lastPrice);
+        const structureHigh = Number(signal.structureHigh);
+        const structureLow = Number(signal.structureLow);
+        if (
+            Number.isFinite(prevPrice) &&
+            Number.isFinite(currPrice) &&
+            Number.isFinite(structureHigh) &&
+            Number.isFinite(structureLow)
+        ) {
+            if (prevPrice <= structureHigh && currPrice > structureHigh) {
+                signals.push(
+                    createSignal(
+                        'blofin',
+                        'icc-break',
+                        `${entry.instId} broke ABOVE structure high ${structureHigh}.`,
+                        {
+                            instId: entry.instId,
+                            direction: 'up',
+                            structureHigh,
+                            structureLow,
+                            prevPrice,
+                            currPrice
+                        }
+                    )
+                );
+            }
+            if (prevPrice >= structureLow && currPrice < structureLow) {
+                signals.push(
+                    createSignal(
+                        'blofin',
+                        'icc-break',
+                        `${entry.instId} broke BELOW structure low ${structureLow}.`,
+                        {
+                            instId: entry.instId,
+                            direction: 'down',
+                            structureHigh,
+                            structureLow,
+                            prevPrice,
+                            currPrice
+                        }
+                    )
+                );
+            }
+        }
     });
+
+    return signals;
 };
 
 const generateSignals = (market, currentSnapshot, previousSnapshot) => {

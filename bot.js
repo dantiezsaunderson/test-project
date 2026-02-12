@@ -3,7 +3,8 @@ const dataStore = require('./dataStore');
 const fetchers = require('./fetchers');
 const { generateSignals } = require('./signalEngine');
 const { notify } = require('./notifier');
-const { runBlofinAutoTrade } = require('./autoTrader');
+const { runBlofinAutoTrade, runAutoTradeWithSettings } = require('./autoTrader');
+const fabiaScanner = require('./fabiaScanner');
 
 const marketFetchers = {
     crypto: fetchers.fetchCrypto,
@@ -58,6 +59,30 @@ const runBot = async ({ reason } = {}) => {
                         });
                         if (autoSummary?.actions?.length) {
                             autoTrades.push(...autoSummary.actions);
+                        }
+                        if (config.markets.blofin.fabiaDryTest) {
+                            const fabiaScan = await fabiaScanner.fetchSignals();
+                            const fabiaSummary = await runAutoTradeWithSettings({
+                                signals: fabiaScan.signals,
+                                reason: 'fabia-dry',
+                                overrides: {
+                                    autoTrade: true,
+                                    allowTrading: true,
+                                    dryRun: true,
+                                    autoTradeKillSwitch: false,
+                                    autoPauseAfterTrade: false,
+                                    autoPauseAfterLoss: false,
+                                    autoBrackets: false,
+                                    autoTradeSessions: [],
+                                    autoDryMaxActions:
+                                        config.markets.blofin.fabiaDryMaxActions,
+                                    maxOpenPositionsDry: 0
+                                },
+                                strategyLabel: 'fabia'
+                            });
+                            if (fabiaSummary?.actions?.length) {
+                                autoTrades.push(...fabiaSummary.actions);
+                            }
                         }
                     } catch (autoError) {
                         errors.push({

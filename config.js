@@ -167,6 +167,11 @@ const config = {
             autoPauseAfterLoss:
                 process.env.BLOFIN_AUTO_PAUSE_AFTER_LOSS === 'true',
             autoBrackets: process.env.BLOFIN_AUTO_BRACKETS === 'true',
+            fabiaDryTest: process.env.BLOFIN_FABIA_DRY_TEST === 'true',
+            fabiaDryMaxActions: parseNumber(
+                process.env.BLOFIN_FABIA_DRY_MAX_ACTIONS,
+                0
+            ),
             autoTradeCooldownMinutes: parseNumber(
                 process.env.BLOFIN_AUTO_COOLDOWN_MINUTES,
                 60
