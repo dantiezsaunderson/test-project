@@ -18,6 +18,7 @@ This repository now includes an MT5 Expert Advisor focused on fast XAUUSD scalp 
 - breakeven, adaptive trailing, and optional partial take-profit
 - anti-HFT entry cadence controls (one-entry-per-bar and hourly cap)
 - fallback unblock mode to prevent no-trade stalls
+- precision filters (HTF trend + ADX) and drawdown throttles
 - max holding time exit
 - daily loss and consecutive-loss guards
 - built-in diagnostics counters for blocked trade reasons

@@ -1,5 +1,5 @@
 #property strict
-#property version   "1.50"
+#property version   "1.60"
 #property description "Ultra-fast XAUUSD scalper template with live-account risk controls."
 
 #include <Trade/Trade.mqh>
@@ -64,6 +64,16 @@ input double InpTP_ATRMultiplier           = 1.20;
 input double InpMinStopPoints              = 80.0;
 input double InpMinTargetPoints            = 80.0;
 
+input group "Precision Filters"
+input bool InpUseHTFTrendFilter            = true;
+input ENUM_TIMEFRAMES InpHTFTrendTF        = PERIOD_M5;
+input int InpHTFFastEMAPeriod              = 20;
+input int InpHTFSlowEMAPeriod              = 50;
+input double InpHTFMinGapPoints            = 8.0;
+input bool InpUseADXFilter                 = true;
+input int InpADXPeriod                     = 14;
+input double InpMinADXValue                = 18.0;
+
 input group "Regime Filters"
 input bool InpEnableRegimeFilter           = false;
 input double InpMinATRPoints               = 40.0;
@@ -74,15 +84,15 @@ input double InpSpreadToATRMaxRatio        = 0.40;
 
 input group "Entry Cadence (Anti-HFT)"
 input bool InpRequireNewBarForEntry        = true;
-input int InpMaxEntriesPerHour             = 8;
+input int InpMaxEntriesPerHour             = 4;
 
 input group "Fallback Unblock"
-input bool InpEnableFallbackUnblock        = true;
-input int InpFallbackNoEntryMinutes        = 20;
-input bool InpFallbackBypassSession        = true;
+input bool InpEnableFallbackUnblock        = false;
+input int InpFallbackNoEntryMinutes        = 30;
+input bool InpFallbackBypassSession        = false;
 input bool InpFallbackBypassTickRate       = true;
-input bool InpFallbackBypassRegime         = true;
-input bool InpFallbackBypassSignalQuality  = true;
+input bool InpFallbackBypassRegime         = false;
+input bool InpFallbackBypassSignalQuality  = false;
 
 input group "Position Management"
 input int InpMaxHoldingSeconds             = 180;
@@ -105,10 +115,14 @@ input double InpPostPartialTrailATRMultiplier = 0.30;
 
 input group "Risk Controls"
 input bool InpUseRiskPercent               = true;
-input double InpRiskPercent                = 0.30;
+input double InpRiskPercent                = 0.10;
 input double InpFixedLot                   = 0.01;
-input double InpDailyLossLimitPercent      = 2.50;
-input int InpMaxConsecutiveLosses          = 4;
+input double InpDailyLossLimitPercent      = 1.20;
+input int InpMaxConsecutiveLosses          = 3;
+input int InpMaxEntriesPerDay              = 24;
+input int InpLossCooldownMinutes           = 30;
+input bool InpUsePeakDrawdownGuard         = true;
+input double InpMaxPeakDrawdownPercent     = 12.0;
 
 input group "Diagnostics"
 input bool InpEnableDiagnostics            = true;
@@ -152,6 +166,9 @@ int g_fast_ema_handle = INVALID_HANDLE;
 int g_slow_ema_handle = INVALID_HANDLE;
 int g_rsi_handle = INVALID_HANDLE;
 int g_atr_handle = INVALID_HANDLE;
+int g_htf_fast_ema_handle = INVALID_HANDLE;
+int g_htf_slow_ema_handle = INVALID_HANDLE;
+int g_adx_handle = INVALID_HANDLE;
 
 long g_tick_times[TICK_BUFFER_SIZE];
 int g_tick_count = 0;
@@ -167,6 +184,8 @@ int g_consecutive_losses = 0;
 int g_daily_closed_trades = 0;
 int g_daily_wins = 0;
 int g_daily_losses = 0;
+int g_daily_entries = 0;
+datetime g_last_loss_time = 0;
 datetime g_last_block_log_time = 0;
 string g_last_block_reason = "";
 double g_effective_max_spread_points = 0.0;
@@ -183,6 +202,7 @@ int g_entries_current_hour = 0;
 datetime g_last_entry_bar_time = 0;
 datetime g_start_time = 0;
 datetime g_last_entry_time = 0;
+double g_equity_peak = 0.0;
 ulong g_managed_ticket = 0;
 double g_managed_initial_volume = 0.0;
 double g_managed_initial_risk_points = 0.0;
@@ -727,7 +747,12 @@ bool ShouldBypassBlock(const int block_code)
    if(block_code == BLOCK_REGIME)
       return InpFallbackBypassRegime;
    if(block_code == BLOCK_SIGNAL_QUALITY)
-      return InpFallbackBypassSignalQuality;
+   {
+      if(!InpFallbackBypassSignalQuality)
+         return false;
+      // Never bypass quality checks while in an active loss day.
+      return (g_daily_losses <= 0);
+   }
 
    return false;
 }
@@ -747,15 +772,22 @@ void MaybePrintDiagnostics()
       return;
 
    g_last_diag_print_time = now;
-   PrintFormat("Diag: entries=%I64d hourly=%d noEntryMin=%d fallback=%s dailyClosed=%d wins=%d losses=%d dailyPnL=%.2f blocks[s=%I64d sp=%I64d rg=%I64d rk=%I64d cd=%I64d tk=%I64d sq=%I64d ca=%I64d]",
+   double equity = AccountInfoDouble(ACCOUNT_EQUITY);
+   if(g_equity_peak <= 0.0)
+      g_equity_peak = equity;
+   const double peak_dd = (g_equity_peak > 0.0 ? ((g_equity_peak - equity) / g_equity_peak) * 100.0 : 0.0);
+
+   PrintFormat("Diag: entries=%I64d hourly=%d noEntryMin=%d fallback=%s dailyEntries=%d dailyClosed=%d wins=%d losses=%d dailyPnL=%.2f peakDD=%.2f%% blocks[s=%I64d sp=%I64d rg=%I64d rk=%I64d cd=%I64d tk=%I64d sq=%I64d ca=%I64d]",
                g_entries_count,
                g_entries_current_hour,
                MinutesSinceLastEntry(),
                (FallbackUnblockActive() ? "on" : "off"),
+               g_daily_entries,
                g_daily_closed_trades,
                g_daily_wins,
                g_daily_losses,
                g_daily_pnl,
+               peak_dd,
                g_block_counts[BLOCK_SESSION],
                g_block_counts[BLOCK_SPREAD],
                g_block_counts[BLOCK_REGIME],
@@ -779,7 +811,10 @@ bool RefreshIndicators(double &ema_fast,
                        double &ema_fast_prev,
                        double &ema_slow_prev,
                        double &rsi,
-                       double &atr)
+                       double &atr,
+                       double &htf_fast,
+                       double &htf_slow,
+                       double &adx_main)
 {
    double fast_buf[];
    double slow_buf[];
@@ -810,7 +845,49 @@ bool RefreshIndicators(double &ema_fast,
    rsi = rsi_buf[0];
    atr = atr_buf[0];
 
-   if(!MathIsValidNumber(ema_fast) || !MathIsValidNumber(ema_slow) || !MathIsValidNumber(rsi) || !MathIsValidNumber(atr))
+   if(InpUseHTFTrendFilter)
+   {
+      double htf_fast_buf[];
+      double htf_slow_buf[];
+      ArrayResize(htf_fast_buf, 1);
+      ArrayResize(htf_slow_buf, 1);
+      ArraySetAsSeries(htf_fast_buf, true);
+      ArraySetAsSeries(htf_slow_buf, true);
+      if(CopyBuffer(g_htf_fast_ema_handle, 0, 0, 1, htf_fast_buf) < 1)
+         return false;
+      if(CopyBuffer(g_htf_slow_ema_handle, 0, 0, 1, htf_slow_buf) < 1)
+         return false;
+      htf_fast = htf_fast_buf[0];
+      htf_slow = htf_slow_buf[0];
+   }
+   else
+   {
+      htf_fast = 0.0;
+      htf_slow = 0.0;
+   }
+
+   if(InpUseADXFilter)
+   {
+      double adx_buf[];
+      ArrayResize(adx_buf, 1);
+      ArraySetAsSeries(adx_buf, true);
+      if(CopyBuffer(g_adx_handle, 0, 0, 1, adx_buf) < 1)
+         return false;
+      adx_main = adx_buf[0];
+   }
+   else
+   {
+      adx_main = 50.0;
+   }
+
+   if(!MathIsValidNumber(ema_fast) ||
+      !MathIsValidNumber(ema_slow) ||
+      !MathIsValidNumber(rsi) ||
+      !MathIsValidNumber(atr))
+      return false;
+   if(InpUseHTFTrendFilter && (!MathIsValidNumber(htf_fast) || !MathIsValidNumber(htf_slow)))
+      return false;
+   if(InpUseADXFilter && !MathIsValidNumber(adx_main))
       return false;
    return (atr > 0.0);
 }
@@ -822,6 +899,9 @@ bool GenerateSignal(const MqlTick &tick,
                     const double ema_slow_prev,
                     const double rsi,
                     const double atr,
+                    const double htf_fast,
+                    const double htf_slow,
+                    const double adx_main,
                     TradeSignal &signal)
 {
    signal.direction = 0;
@@ -861,8 +941,26 @@ bool GenerateSignal(const MqlTick &tick,
    const bool impulse_bearish = (impulse_bar.close < impulse_bar.open);
 
    const double ema_gap_points = MathAbs(ema_fast - ema_slow) / g_point;
-   const bool trend_up = (ema_fast > ema_slow && ema_fast_prev >= ema_slow_prev && ema_gap_points >= InpMinEMAGapPoints);
-   const bool trend_down = (ema_fast < ema_slow && ema_fast_prev <= ema_slow_prev && ema_gap_points >= InpMinEMAGapPoints);
+   bool htf_trend_up = true;
+   bool htf_trend_down = true;
+   if(InpUseHTFTrendFilter)
+   {
+      const double htf_gap_points = MathAbs(htf_fast - htf_slow) / g_point;
+      htf_trend_up = (htf_fast > htf_slow && htf_gap_points >= InpHTFMinGapPoints);
+      htf_trend_down = (htf_fast < htf_slow && htf_gap_points >= InpHTFMinGapPoints);
+   }
+   const bool adx_ok = (!InpUseADXFilter || adx_main >= InpMinADXValue);
+
+   const bool trend_up = (ema_fast > ema_slow &&
+                          ema_fast_prev >= ema_slow_prev &&
+                          ema_gap_points >= InpMinEMAGapPoints &&
+                          htf_trend_up &&
+                          adx_ok);
+   const bool trend_down = (ema_fast < ema_slow &&
+                            ema_fast_prev <= ema_slow_prev &&
+                            ema_gap_points >= InpMinEMAGapPoints &&
+                            htf_trend_down &&
+                            adx_ok);
    const bool bullish_breakout_live = (tick.bid > highest);
    const bool bearish_breakout_live = (tick.ask < lowest);
    const bool bullish_breakout_closed = (impulse_bar.close > highest);
@@ -1055,6 +1153,8 @@ void UpdateRiskStats()
    g_daily_closed_trades = 0;
    g_daily_wins = 0;
    g_daily_losses = 0;
+   g_daily_entries = 0;
+   g_last_loss_time = 0;
    bool reached_last_win = false;
 
    const int deals_total = HistoryDealsTotal();
@@ -1069,6 +1169,11 @@ void UpdateRiskStats()
          continue;
 
       const ENUM_DEAL_ENTRY entry = (ENUM_DEAL_ENTRY)HistoryDealGetInteger(ticket, DEAL_ENTRY);
+      if(entry == DEAL_ENTRY_IN)
+      {
+         g_daily_entries++;
+         continue;
+      }
       if(entry != DEAL_ENTRY_OUT && entry != DEAL_ENTRY_OUT_BY)
          continue;
 
@@ -1080,7 +1185,11 @@ void UpdateRiskStats()
       if(pnl > 0.00001)
          g_daily_wins++;
       else if(pnl < -0.00001)
+      {
          g_daily_losses++;
+         if(g_last_loss_time <= 0)
+            g_last_loss_time = (datetime)HistoryDealGetInteger(ticket, DEAL_TIME);
+      }
 
       if(!reached_last_win)
       {
@@ -1111,6 +1220,20 @@ bool RiskGuardsAllowEntry(string &reason)
    if((TimeCurrent() - g_last_risk_refresh_time) >= 1)
       UpdateRiskStats();
 
+   const double equity_now = AccountInfoDouble(ACCOUNT_EQUITY);
+   if(g_equity_peak <= 0.0 || equity_now > g_equity_peak)
+      g_equity_peak = equity_now;
+
+   if(InpUsePeakDrawdownGuard && InpMaxPeakDrawdownPercent > 0.0 && g_equity_peak > 0.0)
+   {
+      const double peak_dd = ((g_equity_peak - equity_now) / g_equity_peak) * 100.0;
+      if(peak_dd >= InpMaxPeakDrawdownPercent)
+      {
+         reason = StringFormat("peak drawdown %.2f%% reached limit %.2f%%", peak_dd, InpMaxPeakDrawdownPercent);
+         return false;
+      }
+   }
+
    if(InpDailyLossLimitPercent > 0.0)
    {
       const double max_daily_loss = AccountInfoDouble(ACCOUNT_BALANCE) * (InpDailyLossLimitPercent * 0.01);
@@ -1121,10 +1244,28 @@ bool RiskGuardsAllowEntry(string &reason)
       }
    }
 
+   if(InpMaxEntriesPerDay > 0 && g_daily_entries >= InpMaxEntriesPerDay)
+   {
+      reason = StringFormat("daily entries %d reached cap %d", g_daily_entries, InpMaxEntriesPerDay);
+      return false;
+   }
+
    if(InpMaxConsecutiveLosses > 0 && g_consecutive_losses >= InpMaxConsecutiveLosses)
    {
       reason = StringFormat("consecutive losses %d reached limit %d", g_consecutive_losses, InpMaxConsecutiveLosses);
       return false;
+   }
+
+   if(InpLossCooldownMinutes > 0 && g_last_loss_time > 0)
+   {
+      const int elapsed_sec = (int)(TimeCurrent() - g_last_loss_time);
+      if(elapsed_sec >= 0 && elapsed_sec < (InpLossCooldownMinutes * 60))
+      {
+         reason = StringFormat("loss cooldown active (%d/%d min)",
+                               elapsed_sec / 60,
+                               InpLossCooldownMinutes);
+         return false;
+      }
    }
 
    return true;
@@ -1424,10 +1565,27 @@ int OnInit()
    g_slow_ema_handle = iMA(g_symbol, InpSignalTF, InpSlowEMAPeriod, 0, MODE_EMA, PRICE_CLOSE);
    g_rsi_handle = iRSI(g_symbol, InpSignalTF, InpRSIPeriod, PRICE_CLOSE);
    g_atr_handle = iATR(g_symbol, InpSignalTF, InpATRPeriod);
+   if(InpUseHTFTrendFilter)
+   {
+      g_htf_fast_ema_handle = iMA(g_symbol, InpHTFTrendTF, InpHTFFastEMAPeriod, 0, MODE_EMA, PRICE_CLOSE);
+      g_htf_slow_ema_handle = iMA(g_symbol, InpHTFTrendTF, InpHTFSlowEMAPeriod, 0, MODE_EMA, PRICE_CLOSE);
+   }
+   else
+   {
+      g_htf_fast_ema_handle = INVALID_HANDLE;
+      g_htf_slow_ema_handle = INVALID_HANDLE;
+   }
+   if(InpUseADXFilter)
+      g_adx_handle = iADX(g_symbol, InpSignalTF, InpADXPeriod);
+   else
+      g_adx_handle = INVALID_HANDLE;
+
    if(g_fast_ema_handle == INVALID_HANDLE ||
       g_slow_ema_handle == INVALID_HANDLE ||
       g_rsi_handle == INVALID_HANDLE ||
-      g_atr_handle == INVALID_HANDLE)
+      g_atr_handle == INVALID_HANDLE ||
+      (InpUseHTFTrendFilter && (g_htf_fast_ema_handle == INVALID_HANDLE || g_htf_slow_ema_handle == INVALID_HANDLE)) ||
+      (InpUseADXFilter && g_adx_handle == INVALID_HANDLE))
    {
       Print("Indicator initialization failed.");
       return INIT_FAILED;
@@ -1451,11 +1609,12 @@ int OnInit()
    g_last_entry_bar_time = 0;
    g_start_time = TimeCurrent();
    g_last_entry_time = 0;
+   g_equity_peak = AccountInfoDouble(ACCOUNT_EQUITY);
    ResetManagedPositionState();
    UpdateRiskStats();
    EventSetTimer(1);
 
-   PrintFormat("UF XAUUSD scalper initialized on %s (%s), mode=%s spread<=%.1f slip<=%d cooldown=%ds minTicks=%d regime[%s atr %.1f..%.1f] cadence[newBar=%s max/hr=%d] fallback[%s %dmin].",
+   PrintFormat("UF XAUUSD scalper initialized on %s (%s), mode=%s spread<=%.1f slip<=%d cooldown=%ds minTicks=%d regime[%s atr %.1f..%.1f] precision[htf=%s adx=%s] cadence[newBar=%s max/hr=%d] fallback[%s %dmin].",
                g_symbol,
                EnumToString(InpSignalTF),
                ExecutionModeLabel(),
@@ -1466,6 +1625,8 @@ int OnInit()
                (InpEnableRegimeFilter ? "on" : "off"),
                InpMinATRPoints,
                InpMaxATRPoints,
+               (InpUseHTFTrendFilter ? "on" : "off"),
+               (InpUseADXFilter ? "on" : "off"),
                (InpRequireNewBarForEntry ? "on" : "off"),
                InpMaxEntriesPerHour,
                (InpEnableFallbackUnblock ? "on" : "off"),
@@ -1487,6 +1648,12 @@ void OnDeinit(const int reason)
       IndicatorRelease(g_rsi_handle);
    if(g_atr_handle != INVALID_HANDLE)
       IndicatorRelease(g_atr_handle);
+   if(g_htf_fast_ema_handle != INVALID_HANDLE)
+      IndicatorRelease(g_htf_fast_ema_handle);
+   if(g_htf_slow_ema_handle != INVALID_HANDLE)
+      IndicatorRelease(g_htf_slow_ema_handle);
+   if(g_adx_handle != INVALID_HANDLE)
+      IndicatorRelease(g_adx_handle);
 }
 
 void OnTimer()
@@ -1509,11 +1676,32 @@ void OnTick()
    double ema_slow_prev = 0.0;
    double rsi = 0.0;
    double atr = 0.0;
-   if(!RefreshIndicators(ema_fast, ema_slow, ema_fast_prev, ema_slow_prev, rsi, atr))
+   double htf_fast = 0.0;
+   double htf_slow = 0.0;
+   double adx_main = 0.0;
+   if(!RefreshIndicators(ema_fast,
+                         ema_slow,
+                         ema_fast_prev,
+                         ema_slow_prev,
+                         rsi,
+                         atr,
+                         htf_fast,
+                         htf_slow,
+                         adx_main))
       return;
 
    TradeSignal signal;
-   if(!GenerateSignal(tick, ema_fast, ema_slow, ema_fast_prev, ema_slow_prev, rsi, atr, signal))
+   if(!GenerateSignal(tick,
+                      ema_fast,
+                      ema_slow,
+                      ema_fast_prev,
+                      ema_slow_prev,
+                      rsi,
+                      atr,
+                      htf_fast,
+                      htf_slow,
+                      adx_main,
+                      signal))
       return;
 
    ManagePosition(tick, signal.direction, atr);

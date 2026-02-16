@@ -17,6 +17,8 @@ It is designed for low-latency scalp execution while keeping strict live-account
 - optional pullback entries after breakout
 - optional partial take-profit at R-multiple
 - anti-HFT entry cadence controls (max entries/hour + one-entry-per-bar)
+- higher-timeframe trend + ADX precision filters
+- post-loss cooldown, daily entry cap, and peak-drawdown guard
 - daily loss cap and max consecutive losses
 
 ## Important reality check
@@ -79,6 +81,16 @@ To keep behavior scalper-fast but non-burst:
 - `InpMaxEntriesPerHour` (default `8`)
 
 This avoids machine-gun order bursts while preserving precision entry logic.
+
+## Precision filters (new)
+
+To reduce churn and drawdown in chop:
+
+- `InpUseHTFTrendFilter` with `InpHTFTrendTF` (default M5)
+- `InpHTFFastEMAPeriod`, `InpHTFSlowEMAPeriod`, `InpHTFMinGapPoints`
+- `InpUseADXFilter`, `InpADXPeriod`, `InpMinADXValue`
+
+These filters require lower-timeframe entries to align with broader trend strength.
 
 ## Fallback unblock mode (new)
 
@@ -206,6 +218,23 @@ If live/test still shows no trades, start with this discovery profile:
 - `InpMinQualityChecksToPass = 1`
 - `InpMinTicksInWindow = 0`
 - `InpRequireNewBarForEntry = true`
+
+For precision low-drawdown profile, use:
+
+- `InpUseHTFTrendFilter = true`
+- `InpUseADXFilter = true`
+- `InpMinTicksInWindow = 0`
+- `InpUseVolumeQualityFilter = false`
+- `InpUseImpulseQualityFilter = true`
+- `InpMinQualityChecksToPass = 1`
+- `InpEnableFallbackUnblock = false`
+- `InpRiskPercent = 0.10`
+- `InpDailyLossLimitPercent = 1.20`
+- `InpMaxConsecutiveLosses = 3`
+- `InpMaxEntriesPerDay = 24`
+- `InpLossCooldownMinutes = 30`
+- `InpUsePeakDrawdownGuard = true`
+- `InpMaxPeakDrawdownPercent = 12.0`
 
 ## VPS and execution requirements
 
