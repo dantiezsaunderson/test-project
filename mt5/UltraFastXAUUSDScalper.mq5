@@ -1,5 +1,5 @@
 #property strict
-#property version   "1.20"
+#property version   "1.30"
 #property description "Ultra-fast XAUUSD scalper template with live-account risk controls."
 
 #include <Trade/Trade.mqh>
@@ -23,9 +23,9 @@ input bool InpSearchAllBrokerSymbols       = true;
 input group "Execution Filters"
 input double InpMaxSpreadPoints            = 45.0;
 input int InpMaxSlippagePoints             = 18;
-input int InpCooldownSeconds               = 8;
+input int InpCooldownSeconds               = 5;
 input int InpTickRateWindowSeconds         = 2;
-input int InpMinTicksInWindow              = 6;
+input int InpMinTicksInWindow              = 4;
 input bool InpEnableSessionFilter          = true;
 input int InpSessionStartHour              = 6;
 input int InpSessionEndHour                = 23;
@@ -44,11 +44,11 @@ input int InpSlowEMAPeriod                 = 21;
 input int InpRSIPeriod                     = 8;
 input double InpRSIOverbought              = 72.0;
 input double InpRSIOversold                = 28.0;
-input double InpMinEMAGapPoints            = 8.0;
+input double InpMinEMAGapPoints            = 5.0;
 input int InpBreakoutLookbackBars          = 8;
-input double InpMinVolumeImpulse           = 1.10;
-input double InpMinImpulseBodyPercent      = 52.0;
-input double InpMinImpulseRangePoints      = 30.0;
+input double InpMinVolumeImpulse           = 1.03;
+input double InpMinImpulseBodyPercent      = 45.0;
+input double InpMinImpulseRangePoints      = 15.0;
 input bool InpEnablePullbackEntry          = true;
 input double InpPullbackATRDistance        = 0.22;
 input int InpATRPeriod                     = 14;
@@ -59,11 +59,11 @@ input double InpMinTargetPoints            = 80.0;
 
 input group "Regime Filters"
 input bool InpEnableRegimeFilter           = true;
-input double InpMinATRPoints               = 90.0;
+input double InpMinATRPoints               = 40.0;
 input double InpMaxATRPoints               = 900.0;
 input int InpSpreadRankLookbackTicks       = 120;
 input double InpMaxSpreadRankPercentile    = 0.80;
-input double InpSpreadToATRMaxRatio        = 0.18;
+input double InpSpreadToATRMaxRatio        = 0.40;
 
 input group "Position Management"
 input int InpMaxHoldingSeconds             = 180;
@@ -94,6 +94,12 @@ input int InpMaxConsecutiveLosses          = 4;
 input group "Diagnostics"
 input bool InpEnableDiagnostics            = true;
 input int InpDiagnosticsPrintIntervalSeconds = 300;
+
+input group "Optimization"
+input bool InpUseCustomTesterScore         = true;
+input int InpMinTradesForTesterScore       = 120;
+input double InpTargetProfitFactor         = 1.20;
+input double InpMaxBalanceDDPctForScore    = 15.0;
 
 // Keep this buffer compact for speed while still covering short windows.
 #define TICK_BUFFER_SIZE 1024
@@ -126,7 +132,7 @@ int g_slow_ema_handle = INVALID_HANDLE;
 int g_rsi_handle = INVALID_HANDLE;
 int g_atr_handle = INVALID_HANDLE;
 
-uint g_tick_times[TICK_BUFFER_SIZE];
+long g_tick_times[TICK_BUFFER_SIZE];
 int g_tick_count = 0;
 int g_tick_cursor = 0;
 double g_spread_points_history[SPREAD_BUFFER_SIZE];
@@ -384,7 +390,13 @@ bool IsTradingSessionOpen()
 
 void RegisterTick(const MqlTick &tick)
 {
-   g_tick_times[g_tick_cursor] = GetTickCount();
+   long tick_time_msc = tick.time_msc;
+   if(tick_time_msc <= 0)
+      tick_time_msc = (long)tick.time * 1000;
+   if(tick_time_msc <= 0)
+      tick_time_msc = (long)TimeCurrent() * 1000;
+
+   g_tick_times[g_tick_cursor] = tick_time_msc;
    g_tick_cursor = (g_tick_cursor + 1) % TICK_BUFFER_SIZE;
    if(g_tick_count < TICK_BUFFER_SIZE)
       g_tick_count++;
@@ -404,15 +416,23 @@ int TicksInWindow(const int window_seconds)
    if(window_seconds <= 0 || g_tick_count <= 0)
       return 0;
 
-   const uint now = GetTickCount();
-   const uint threshold = (uint)(window_seconds * 1000);
+   int last_idx = g_tick_cursor - 1;
+   if(last_idx < 0)
+      last_idx += TICK_BUFFER_SIZE;
+   long now_msc = g_tick_times[last_idx];
+   if(now_msc <= 0)
+      now_msc = (long)TimeCurrent() * 1000;
+
+   const long threshold = (long)window_seconds * 1000;
    int count = 0;
 
    for(int i = 0; i < g_tick_count; i++)
    {
-      const uint ts = g_tick_times[i];
-      const uint age = now - ts;
-      if(age <= threshold)
+      const long ts = g_tick_times[i];
+      if(ts <= 0)
+         continue;
+      const long age = now_msc - ts;
+      if(age >= 0 && age <= threshold)
          count++;
    }
 
@@ -1315,4 +1335,50 @@ void OnTick()
    }
 
    PlaceEntry(signal.direction, signal.stop_points, signal.target_points, tick);
+}
+
+double OnTester()
+{
+   const double profit = TesterStatistics(STAT_PROFIT);
+   if(!InpUseCustomTesterScore)
+      return profit;
+
+   const double trades = TesterStatistics(STAT_TRADES);
+   const double pf_raw = TesterStatistics(STAT_PROFIT_FACTOR);
+   const double dd_rel = TesterStatistics(STAT_BALANCE_DDREL_PERCENT);
+   const double expected_payoff = TesterStatistics(STAT_EXPECTED_PAYOFF);
+
+   if(trades < 1.0)
+      return -1000000000.0;
+
+   if(trades < (double)InpMinTradesForTesterScore)
+      return -500000.0 + trades * 20.0 + profit * 0.01;
+
+   double pf = pf_raw;
+   if(!MathIsValidNumber(pf) || pf <= 0.0)
+      pf = 0.05;
+   if(pf > 5.0)
+      pf = 5.0;
+
+   double dd_factor = 1.0 - (MathMin(MathMax(dd_rel, 0.0), 95.0) / 100.0);
+   if(dd_factor < 0.05)
+      dd_factor = 0.05;
+
+   double pf_factor = pf;
+   if(InpTargetProfitFactor > 0.0)
+      pf_factor *= MathMin(pf / InpTargetProfitFactor, 1.50);
+
+   double score = profit * pf_factor * dd_factor;
+   score += expected_payoff * trades * 0.20;
+
+   if(InpMaxBalanceDDPctForScore > 0.0 && dd_rel > InpMaxBalanceDDPctForScore)
+   {
+      const double penalty_scale = MathAbs(profit) + 1000.0;
+      score -= (dd_rel - InpMaxBalanceDDPctForScore) * penalty_scale;
+   }
+
+   if(profit <= 0.0)
+      score -= 250000.0;
+
+   return score;
 }

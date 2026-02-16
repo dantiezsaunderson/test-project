@@ -92,6 +92,19 @@ Main inputs:
 - `InpEnableDiagnostics`
 - `InpDiagnosticsPrintIntervalSeconds`
 
+## Optimization score (new)
+
+The EA now includes `OnTester()` custom scoring to avoid optimizer drifting into no-trade parameter sets.
+
+Inputs:
+
+- `InpUseCustomTesterScore`
+- `InpMinTradesForTesterScore`
+- `InpTargetProfitFactor`
+- `InpMaxBalanceDDPctForScore`
+
+In Strategy Tester, set optimization criterion to **Custom max** to use this score.
+
 ## Execution profiles
 
 `InpExecutionMode` supports:
@@ -137,6 +150,17 @@ For low-spread ECN accounts, try:
 4. Tune signal sensitivity last (`EMA/RSI/lookback/impulse settings`).
 5. Validate out-of-sample periods and then forward test on demo.
 6. Move to tiny live size first.
+
+If optimization returns mostly 0 trades:
+
+1. Keep criterion on **Custom max**.
+2. Temporarily loosen:
+   - `InpMinATRPoints`
+   - `InpMinEMAGapPoints`
+   - `InpMinImpulseBodyPercent`
+   - `InpMinImpulseRangePoints`
+   - `InpMinVolumeImpulse`
+3. Set `InpEnableRegimeFilter=false` for one discovery pass, then re-enable and refine.
 
 ## VPS and execution requirements
 
