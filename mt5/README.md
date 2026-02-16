@@ -1,0 +1,252 @@
+# UltraFast XAUUSD Scalper EA (MT5)
+
+This folder contains a production-oriented **MT5 Expert Advisor template** for XAUUSD:
+
+- `UltraFastXAUUSDScalper.mq5`
+
+It is designed for low-latency scalp execution while keeping strict live-account safeguards:
+
+- broker-symbol auto-detection (`XAUUSD`, `XAUUSDm`, `XAUUSD.pro`, etc.)
+- spread and slippage filters
+- tick-rate/liquidity gating
+- session filter
+- standard and ECN low-spread execution profiles
+- ATR-based dynamic SL/TP
+- regime filter (ATR band + spread rank + spread/ATR ratio)
+- breakeven + adaptive trailing management
+- optional pullback entries after breakout
+- optional partial take-profit at R-multiple
+- anti-HFT entry cadence controls (max entries/hour + one-entry-per-bar)
+- higher-timeframe trend + ADX precision filters
+- post-loss cooldown, daily entry cap, and peak-drawdown guard
+- daily loss cap and max consecutive losses
+
+## Important reality check
+
+Retail MT5 EAs cannot truly match institutional HFT infrastructure (co-location, direct market access, custom hardware).  
+This EA is built to be **as fast and robust as possible in retail conditions**, not to promise guaranteed institutional-level performance.
+
+## Install
+
+1. Open MT5 -> `File` -> `Open Data Folder`
+2. Copy `UltraFastXAUUSDScalper.mq5` into:
+   - `MQL5/Experts/`
+3. Restart MT5 or refresh the Navigator.
+4. Compile in MetaEditor.
+5. Attach to an **XAUUSD** chart (M1 recommended).
+
+## Symbol auto-detection
+
+The EA can auto-resolve broker naming variants when exact `InpTradeSymbol` is unavailable.
+
+In MT5 Strategy Tester specifically, the EA now forces `InpTradeSymbol` to the tested chart symbol (`_Symbol`) to prevent no-trade optimization runs from suffix mismatches.
+
+Key inputs:
+
+- `InpAutoDetectSymbolSuffix = true`
+- `InpAutoDetectBaseSymbol = "XAUUSD"`
+- `InpSearchAllBrokerSymbols = true`
+
+Example behavior:
+
+- requested `XAUUSD` not found
+- broker offers `XAUUSDm`
+- EA auto-detects `XAUUSDm` and logs it in `Experts`
+
+## Default strategy logic
+
+Entry requires all of the following:
+
+1. Trend alignment from EMA fast/slow.
+2. Breakout of recent micro-range (`InpBreakoutLookbackBars`).
+3. Closed-bar impulse quality check (body % and range points).
+4. RSI confirmation (avoid extreme exhaustion).
+5. Tick-volume impulse filter.
+6. Optional pullback re-entry around breakout level.
+7. Spread, session, regime, risk, and tick-rate filters all pass.
+
+Signal quality filters are configurable (not hard all-or-nothing):
+
+- `InpUseRSIQualityFilter` (default `false`)
+- `InpUseVolumeQualityFilter`
+- `InpUseImpulseQualityFilter`
+- `InpMinQualityChecksToPass` (minimum number of enabled quality checks that must pass)
+- `InpAllowClosedBarBreakoutEntry` (allows entry from confirmed bar breakout, not only live tick breach)
+
+## Entry cadence (anti-HFT profile)
+
+To keep behavior scalper-fast but non-burst:
+
+- `InpRequireNewBarForEntry` (default `true`)
+- `InpMaxEntriesPerHour` (default `8`)
+
+This avoids machine-gun order bursts while preserving precision entry logic.
+
+## Precision filters (new)
+
+To reduce churn and drawdown in chop:
+
+- `InpUseHTFTrendFilter` with `InpHTFTrendTF` (default M5)
+- `InpHTFFastEMAPeriod`, `InpHTFSlowEMAPeriod`, `InpHTFMinGapPoints`
+- `InpUseADXFilter`, `InpADXPeriod`, `InpMinADXValue`
+
+These filters require lower-timeframe entries to align with broader trend strength.
+
+## Fallback unblock mode (new)
+
+If no entries occur for an extended period, the EA can temporarily bypass over-restrictive gates to restore trade flow:
+
+- `InpEnableFallbackUnblock`
+- `InpFallbackNoEntryMinutes`
+- `InpFallbackBypassSession`
+- `InpFallbackBypassTickRate`
+- `InpFallbackBypassRegime`
+- `InpFallbackBypassSignalQuality`
+
+This is useful when broker feed or session inputs become too restrictive and the EA stalls.
+
+Position handling:
+
+- hard SL/TP at entry (ATR-derived)
+- optional close on opposite signal
+- breakeven trigger
+- ATR trailing stop (can tighten after 1R)
+- optional partial close at configurable R-multiple
+- adaptive max holding time by volatility regime
+
+## Regime filters (new)
+
+Use these to avoid dead/chaotic conditions before optimization:
+
+- `InpEnableRegimeFilter`
+- `InpMinATRPoints`, `InpMaxATRPoints`
+- `InpSpreadRankLookbackTicks`, `InpMaxSpreadRankPercentile`
+- `InpSpreadToATRMaxRatio`
+
+This reduces entries when spread is unusually expensive relative to recent market state.
+
+## Diagnostics (new)
+
+The EA now tracks reason-code counters and periodic diagnostics:
+
+- blocked by session/spread/regime/risk/cooldown/tick-rate/signal-quality/cadence
+- daily closed trades, wins, losses, and PnL
+
+Main inputs:
+
+- `InpEnableDiagnostics`
+- `InpDiagnosticsPrintIntervalSeconds`
+
+## Optimization score (new)
+
+The EA now includes `OnTester()` custom scoring to avoid optimizer drifting into no-trade parameter sets.
+
+Inputs:
+
+- `InpUseCustomTesterScore`
+- `InpMinTradesForTesterScore`
+- `InpTargetProfitFactor`
+- `InpMaxBalanceDDPctForScore`
+
+In Strategy Tester, set optimization criterion to **Custom max** to use this score.
+
+## Execution profiles
+
+`InpExecutionMode` supports:
+
+1. `EXEC_MODE_STANDARD`
+   - uses the standard spread/slippage/cooldown inputs
+   - sends market order with SL/TP in one request
+2. `EXEC_MODE_ECN_LOW_SPREAD`
+   - uses ECN overrides:
+     - `InpECNMaxSpreadPoints`
+     - `InpECNMaxSlippagePoints`
+     - `InpECNCooldownSeconds`
+     - `InpECNMinTicksInWindow`
+   - can send orders first, then attach stops (`InpECNSendStopsAfterFill = true`) for ECN compatibility
+   - attempts IOC fill policy when broker supports it
+
+## Suggested baseline for XAUUSD live testing
+
+Start conservative and tune based on broker conditions:
+
+- `InpSignalTF = PERIOD_M1`
+- `InpFastEMAPeriod = 8`
+- `InpSlowEMAPeriod = 21`
+- `InpMaxSpreadPoints = 30..60` (broker dependent)
+- `InpMaxSlippagePoints = 10..25`
+- `InpRiskPercent = 0.10..0.40`
+- `InpDailyLossLimitPercent = 1.0..3.0`
+- `InpMaxHoldingSeconds = 90..240`
+
+For low-spread ECN accounts, try:
+
+- `InpExecutionMode = EXEC_MODE_ECN_LOW_SPREAD`
+- `InpECNMaxSpreadPoints = 12..28`
+- `InpECNMaxSlippagePoints = 4..12`
+- `InpECNCooldownSeconds = 1..5`
+- `InpECNMinTicksInWindow = 8..15`
+
+## Optimization workflow
+
+1. Backtest with **real tick data** and realistic spread/slippage.
+2. Tune execution+regime filters first (`spread/slippage/cooldown/tick-rate/regime`).
+3. Tune exits next (`SL/TP ATR multipliers`, adaptive hold, trailing, partial TP).
+4. Tune signal sensitivity last (`EMA/RSI/lookback/impulse settings`).
+5. Validate out-of-sample periods and then forward test on demo.
+6. Move to tiny live size first.
+
+If optimization returns mostly 0 trades:
+
+1. Keep criterion on **Custom max**.
+2. Temporarily loosen:
+   - `InpMinATRPoints`
+   - `InpMinEMAGapPoints`
+   - `InpMinImpulseBodyPercent`
+   - `InpMinImpulseRangePoints`
+   - `InpMinVolumeImpulse`
+   - `InpMinQualityChecksToPass`
+3. Set `InpEnableRegimeFilter=false` for one discovery pass, then re-enable and refine.
+4. Keep `InpUseRSIQualityFilter=false` until you already have tradable candidates.
+
+If live/test still shows no trades, start with this discovery profile:
+
+- `InpEnableRegimeFilter = false`
+- `InpUseRSIQualityFilter = false`
+- `InpUseVolumeQualityFilter = false`
+- `InpUseImpulseQualityFilter = true`
+- `InpMinQualityChecksToPass = 1`
+- `InpMinTicksInWindow = 0`
+- `InpRequireNewBarForEntry = true`
+
+For precision low-drawdown profile, use:
+
+- `InpUseHTFTrendFilter = true`
+- `InpUseADXFilter = true`
+- `InpMinTicksInWindow = 0`
+- `InpUseVolumeQualityFilter = false`
+- `InpUseImpulseQualityFilter = true`
+- `InpMinQualityChecksToPass = 1`
+- `InpEnableFallbackUnblock = false`
+- `InpRiskPercent = 0.10`
+- `InpDailyLossLimitPercent = 1.20`
+- `InpMaxConsecutiveLosses = 3`
+- `InpMaxEntriesPerDay = 24`
+- `InpLossCooldownMinutes = 30`
+- `InpUsePeakDrawdownGuard = true`
+- `InpMaxPeakDrawdownPercent = 12.0`
+
+## VPS and execution requirements
+
+To keep execution latency low:
+
+- run EA on a VPS near broker server
+- use stable low-jitter network
+- avoid overloaded terminals with many heavy indicators
+- monitor `Experts` and `Journal` logs for blocked-entry reasons
+
+## Risk notes
+
+- This EA can still lose money quickly in high-impact news and spread spikes.
+- Keep AutoTrading risk controls enabled.
+- Prefer disabling around major macro events if your broker widens aggressively.
