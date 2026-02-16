@@ -16,6 +16,7 @@ It is designed for low-latency scalp execution while keeping strict live-account
 - breakeven + adaptive trailing management
 - optional pullback entries after breakout
 - optional partial take-profit at R-multiple
+- anti-HFT entry cadence controls (max entries/hour + one-entry-per-bar)
 - daily loss cap and max consecutive losses
 
 ## Important reality check
@@ -62,12 +63,22 @@ Entry requires all of the following:
 6. Optional pullback re-entry around breakout level.
 7. Spread, session, regime, risk, and tick-rate filters all pass.
 
-Signal quality filters are now configurable (not hard all-or-nothing):
+Signal quality filters are configurable (not hard all-or-nothing):
 
 - `InpUseRSIQualityFilter` (default `false`)
 - `InpUseVolumeQualityFilter`
 - `InpUseImpulseQualityFilter`
 - `InpMinQualityChecksToPass` (minimum number of enabled quality checks that must pass)
+- `InpAllowClosedBarBreakoutEntry` (allows entry from confirmed bar breakout, not only live tick breach)
+
+## Entry cadence (anti-HFT profile)
+
+To keep behavior scalper-fast but non-burst:
+
+- `InpRequireNewBarForEntry` (default `true`)
+- `InpMaxEntriesPerHour` (default `8`)
+
+This avoids machine-gun order bursts while preserving precision entry logic.
 
 Position handling:
 
@@ -93,7 +104,7 @@ This reduces entries when spread is unusually expensive relative to recent marke
 
 The EA now tracks reason-code counters and periodic diagnostics:
 
-- blocked by session/spread/regime/risk/cooldown/tick-rate/signal-quality
+- blocked by session/spread/regime/risk/cooldown/tick-rate/signal-quality/cadence
 - daily closed trades, wins, losses, and PnL
 
 Main inputs:
@@ -172,6 +183,16 @@ If optimization returns mostly 0 trades:
    - `InpMinQualityChecksToPass`
 3. Set `InpEnableRegimeFilter=false` for one discovery pass, then re-enable and refine.
 4. Keep `InpUseRSIQualityFilter=false` until you already have tradable candidates.
+
+If live/test still shows no trades, start with this discovery profile:
+
+- `InpEnableRegimeFilter = false`
+- `InpUseRSIQualityFilter = false`
+- `InpUseVolumeQualityFilter = false`
+- `InpUseImpulseQualityFilter = true`
+- `InpMinQualityChecksToPass = 1`
+- `InpMinTicksInWindow = 0`
+- `InpRequireNewBarForEntry = true`
 
 ## VPS and execution requirements
 

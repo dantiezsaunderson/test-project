@@ -1,5 +1,5 @@
 #property strict
-#property version   "1.32"
+#property version   "1.40"
 #property description "Ultra-fast XAUUSD scalper template with live-account risk controls."
 
 #include <Trade/Trade.mqh>
@@ -25,8 +25,8 @@ input double InpMaxSpreadPoints            = 45.0;
 input int InpMaxSlippagePoints             = 18;
 input int InpCooldownSeconds               = 5;
 input int InpTickRateWindowSeconds         = 2;
-input int InpMinTicksInWindow              = 4;
-input bool InpEnableSessionFilter          = true;
+input int InpMinTicksInWindow              = 0;
+input bool InpEnableSessionFilter          = false;
 input int InpSessionStartHour              = 6;
 input int InpSessionEndHour                = 23;
 
@@ -35,7 +35,7 @@ input ExecutionMode InpExecutionMode       = EXEC_MODE_STANDARD;
 input double InpECNMaxSpreadPoints         = 22.0;
 input int InpECNMaxSlippagePoints          = 8;
 input int InpECNCooldownSeconds            = 3;
-input int InpECNMinTicksInWindow           = 8;
+input int InpECNMinTicksInWindow           = 4;
 input bool InpECNSendStopsAfterFill        = true;
 
 input group "Signal Model"
@@ -50,13 +50,14 @@ input double InpRSIShortUpperBound         = 58.0;
 input double InpMinEMAGapPoints            = 5.0;
 input int InpBreakoutLookbackBars          = 8;
 input double InpMinVolumeImpulse           = 1.03;
-input bool InpUseVolumeQualityFilter       = true;
+input bool InpUseVolumeQualityFilter       = false;
 input double InpMinImpulseBodyPercent      = 45.0;
 input double InpMinImpulseRangePoints      = 15.0;
 input bool InpUseImpulseQualityFilter      = true;
 input int InpMinQualityChecksToPass        = 1;
 input bool InpEnablePullbackEntry          = true;
 input double InpPullbackATRDistance        = 0.22;
+input bool InpAllowClosedBarBreakoutEntry  = true;
 input int InpATRPeriod                     = 14;
 input double InpSL_ATRMultiplier           = 0.85;
 input double InpTP_ATRMultiplier           = 1.20;
@@ -64,12 +65,16 @@ input double InpMinStopPoints              = 80.0;
 input double InpMinTargetPoints            = 80.0;
 
 input group "Regime Filters"
-input bool InpEnableRegimeFilter           = true;
+input bool InpEnableRegimeFilter           = false;
 input double InpMinATRPoints               = 40.0;
 input double InpMaxATRPoints               = 900.0;
 input int InpSpreadRankLookbackTicks       = 120;
 input double InpMaxSpreadRankPercentile    = 0.80;
 input double InpSpreadToATRMaxRatio        = 0.40;
+
+input group "Entry Cadence (Anti-HFT)"
+input bool InpRequireNewBarForEntry        = true;
+input int InpMaxEntriesPerHour             = 8;
 
 input group "Position Management"
 input int InpMaxHoldingSeconds             = 180;
@@ -110,7 +115,7 @@ input double InpMaxBalanceDDPctForScore    = 15.0;
 // Keep this buffer compact for speed while still covering short windows.
 #define TICK_BUFFER_SIZE 1024
 #define SPREAD_BUFFER_SIZE 512
-#define BLOCK_REASON_TOTAL 7
+#define BLOCK_REASON_TOTAL 8
 
 #define BLOCK_SESSION 0
 #define BLOCK_SPREAD 1
@@ -119,6 +124,7 @@ input double InpMaxBalanceDDPctForScore    = 15.0;
 #define BLOCK_COOLDOWN 4
 #define BLOCK_TICKRATE 5
 #define BLOCK_SIGNAL_QUALITY 6
+#define BLOCK_CADENCE 7
 
 struct TradeSignal
 {
@@ -162,6 +168,9 @@ bool g_use_ecn_post_fill_stops = false;
 long g_block_counts[BLOCK_REASON_TOTAL];
 long g_entries_count = 0;
 datetime g_last_diag_print_time = 0;
+datetime g_entry_hour_bucket = 0;
+int g_entries_current_hour = 0;
+datetime g_last_entry_bar_time = 0;
 ulong g_managed_ticket = 0;
 double g_managed_initial_volume = 0.0;
 double g_managed_initial_risk_points = 0.0;
@@ -590,6 +599,76 @@ int EffectiveMaxHoldingSeconds(const double atr_points)
    return max_hold;
 }
 
+datetime HourBucketTime(const datetime timestamp)
+{
+   if(timestamp <= 0)
+      return 0;
+
+   MqlDateTime dt;
+   if(!TimeToStruct(timestamp, dt))
+      return 0;
+   dt.min = 0;
+   dt.sec = 0;
+   return StructToTime(dt);
+}
+
+bool EntryCadenceAllows(string &reason)
+{
+   reason = "";
+   const datetime now = TimeCurrent();
+   if(now <= 0)
+      return true;
+
+   if(InpMaxEntriesPerHour > 0)
+   {
+      const datetime bucket = HourBucketTime(now);
+      if(bucket != g_entry_hour_bucket)
+      {
+         g_entry_hour_bucket = bucket;
+         g_entries_current_hour = 0;
+      }
+      if(g_entries_current_hour >= InpMaxEntriesPerHour)
+      {
+         reason = StringFormat("hourly entry cap reached (%d/%d)", g_entries_current_hour, InpMaxEntriesPerHour);
+         return false;
+      }
+   }
+
+   if(InpRequireNewBarForEntry)
+   {
+      const datetime bar_time = iTime(g_symbol, InpSignalTF, 0);
+      if(bar_time > 0 && g_last_entry_bar_time == bar_time)
+      {
+         reason = "one-entry-per-bar active";
+         return false;
+      }
+   }
+
+   return true;
+}
+
+void RegisterEntryCadence()
+{
+   const datetime now = TimeCurrent();
+   if(now > 0)
+   {
+      const datetime bucket = HourBucketTime(now);
+      if(bucket != g_entry_hour_bucket)
+      {
+         g_entry_hour_bucket = bucket;
+         g_entries_current_hour = 0;
+      }
+      g_entries_current_hour++;
+   }
+
+   if(InpRequireNewBarForEntry)
+   {
+      const datetime bar_time = iTime(g_symbol, InpSignalTF, 0);
+      if(bar_time > 0)
+         g_last_entry_bar_time = bar_time;
+   }
+}
+
 void MaybePrintDiagnostics()
 {
    if(!InpEnableDiagnostics)
@@ -605,8 +684,9 @@ void MaybePrintDiagnostics()
       return;
 
    g_last_diag_print_time = now;
-   PrintFormat("Diag: entries=%I64d dailyClosed=%d wins=%d losses=%d dailyPnL=%.2f blocks[s=%I64d sp=%I64d rg=%I64d rk=%I64d cd=%I64d tk=%I64d sq=%I64d]",
+   PrintFormat("Diag: entries=%I64d hourly=%d dailyClosed=%d wins=%d losses=%d dailyPnL=%.2f blocks[s=%I64d sp=%I64d rg=%I64d rk=%I64d cd=%I64d tk=%I64d sq=%I64d ca=%I64d]",
                g_entries_count,
+               g_entries_current_hour,
                g_daily_closed_trades,
                g_daily_wins,
                g_daily_losses,
@@ -617,7 +697,8 @@ void MaybePrintDiagnostics()
                g_block_counts[BLOCK_RISK],
                g_block_counts[BLOCK_COOLDOWN],
                g_block_counts[BLOCK_TICKRATE],
-               g_block_counts[BLOCK_SIGNAL_QUALITY]);
+               g_block_counts[BLOCK_SIGNAL_QUALITY],
+               g_block_counts[BLOCK_CADENCE]);
 }
 
 bool SpreadAllowed(const MqlTick &tick, double &spread_points)
@@ -751,8 +832,12 @@ bool GenerateSignal(const MqlTick &tick,
       short_rsi_ok = (rsi < InpRSIShortUpperBound && rsi > InpRSIOversold);
    }
 
-   const bool long_trigger = (bullish_breakout_live || bullish_pullback);
-   const bool short_trigger = (bearish_breakout_live || bearish_pullback);
+   const bool long_trigger = (bullish_breakout_live ||
+                              bullish_pullback ||
+                              (InpAllowClosedBarBreakoutEntry && bullish_breakout_closed));
+   const bool short_trigger = (bearish_breakout_live ||
+                               bearish_pullback ||
+                               (InpAllowClosedBarBreakoutEntry && bearish_breakout_closed));
 
    const double atr_points = atr / g_point;
    const double stop_points = MathMax(InpMinStopPoints, atr_points * InpSL_ATRMultiplier);
@@ -1239,6 +1324,7 @@ bool PlaceEntry(const int direction, double stop_points, double target_points, c
 
    g_last_trade_action_time = TimeCurrent();
    g_entries_count++;
+   RegisterEntryCadence();
    PrintFormat("Entry placed: dir=%d lots=%.2f sl=%.2f tp=%.2f mode=%s",
                direction,
                volume,
@@ -1291,11 +1377,14 @@ int OnInit()
    g_spread_cursor = 0;
    g_entries_count = 0;
    g_last_diag_print_time = 0;
+   g_entry_hour_bucket = 0;
+   g_entries_current_hour = 0;
+   g_last_entry_bar_time = 0;
    ResetManagedPositionState();
    UpdateRiskStats();
    EventSetTimer(1);
 
-   PrintFormat("UF XAUUSD scalper initialized on %s (%s), mode=%s spread<=%.1f slip<=%d cooldown=%ds minTicks=%d regime[%s atr %.1f..%.1f].",
+   PrintFormat("UF XAUUSD scalper initialized on %s (%s), mode=%s spread<=%.1f slip<=%d cooldown=%ds minTicks=%d regime[%s atr %.1f..%.1f] cadence[newBar=%s max/hr=%d].",
                g_symbol,
                EnumToString(InpSignalTF),
                ExecutionModeLabel(),
@@ -1305,7 +1394,9 @@ int OnInit()
                g_effective_min_ticks_window,
                (InpEnableRegimeFilter ? "on" : "off"),
                InpMinATRPoints,
-               InpMaxATRPoints);
+               InpMaxATRPoints,
+               (InpRequireNewBarForEntry ? "on" : "off"),
+               InpMaxEntriesPerHour);
    if(g_symbol != _Symbol)
       Print("Attach EA to chart symbol matching InpTradeSymbol for best tick frequency.");
 
@@ -1413,6 +1504,13 @@ void OnTick()
          RegisterBlock(BLOCK_TICKRATE, StringFormat("tick-rate %d below %d", ticks_now, g_effective_min_ticks_window));
          return;
       }
+   }
+
+   string cadence_reason = "";
+   if(!EntryCadenceAllows(cadence_reason))
+   {
+      RegisterBlock(BLOCK_CADENCE, cadence_reason);
+      return;
    }
 
    PlaceEntry(signal.direction, signal.stop_points, signal.target_points, tick);

@@ -16,6 +16,7 @@ This repository now includes an MT5 Expert Advisor focused on fast XAUUSD scalp 
 - STANDARD and ECN low-spread execution modes
 - ATR-based SL/TP sizing with adaptive time-stop
 - breakeven, adaptive trailing, and optional partial take-profit
+- anti-HFT entry cadence controls (one-entry-per-bar and hourly cap)
 - max holding time exit
 - daily loss and consecutive-loss guards
 - built-in diagnostics counters for blocked trade reasons
