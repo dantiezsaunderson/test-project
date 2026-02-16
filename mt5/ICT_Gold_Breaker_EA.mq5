@@ -106,7 +106,7 @@ bool IsSwingLow(const MqlRates &rates[],const int i)
    return (rates[i].low<rates[i-1].low && rates[i].low<rates[i+1].low);
   }
 
-int FindLatestIndexBefore(const int indices[],const int pivot)
+int FindLatestIndexBefore(const int &indices[],const int pivot)
   {
    for(int i=ArraySize(indices)-1;i>=0;--i)
      {
@@ -146,7 +146,7 @@ bool CandleTouchesZone(const MqlRates &bar,const double zoneLow,const double zon
    return (bar.low<=zoneHigh && bar.high>=zoneLow);
   }
 
-bool FindBullishContext(const MqlRates &rates[],const int lastClosed,const int swingHighs[],const int swingLows[],HTFContext &ctx)
+bool FindBullishContext(const MqlRates &rates[],const int lastClosed,const int &swingHighs[],const int &swingLows[],HTFContext &ctx)
   {
    const double point=SymbolPointValue();
    const double breakBuffer=InpBreakBufferPoints*point;
@@ -207,7 +207,7 @@ bool FindBullishContext(const MqlRates &rates[],const int lastClosed,const int s
    return false;
   }
 
-bool FindBearishContext(const MqlRates &rates[],const int lastClosed,const int swingHighs[],const int swingLows[],HTFContext &ctx)
+bool FindBearishContext(const MqlRates &rates[],const int lastClosed,const int &swingHighs[],const int &swingLows[],HTFContext &ctx)
   {
    const double point=SymbolPointValue();
    const double breakBuffer=InpBreakBufferPoints*point;
