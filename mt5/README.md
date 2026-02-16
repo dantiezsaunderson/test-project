@@ -31,6 +31,7 @@ This EA implements the strategy framework from your transcript in a **rule-based
 ## Files
 
 - `ICT_Gold_Breaker_EA.mq5` - MT5 Expert Advisor source code.
+- `ICTGoldBreaker.mq5` - thin wrapper that includes the EA source (for naming compatibility in MetaEditor projects).
 
 ---
 
