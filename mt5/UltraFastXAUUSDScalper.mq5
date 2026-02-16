@@ -315,7 +315,10 @@ bool IsTradingSessionOpen()
    if(!InpEnableSessionFilter)
       return true;
 
-   const int hour_now = TimeHour(TimeCurrent());
+   MqlDateTime now_struct;
+   if(!TimeToStruct(TimeCurrent(), now_struct))
+      return true;
+   const int hour_now = now_struct.hour;
    if(InpSessionStartHour == InpSessionEndHour)
       return true;
 
