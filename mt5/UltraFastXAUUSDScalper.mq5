@@ -1,5 +1,5 @@
 #property strict
-#property version   "1.10"
+#property version   "1.20"
 #property description "Ultra-fast XAUUSD scalper template with live-account risk controls."
 
 #include <Trade/Trade.mqh>
@@ -47,18 +47,42 @@ input double InpRSIOversold                = 28.0;
 input double InpMinEMAGapPoints            = 8.0;
 input int InpBreakoutLookbackBars          = 8;
 input double InpMinVolumeImpulse           = 1.10;
+input double InpMinImpulseBodyPercent      = 52.0;
+input double InpMinImpulseRangePoints      = 30.0;
+input bool InpEnablePullbackEntry          = true;
+input double InpPullbackATRDistance        = 0.22;
 input int InpATRPeriod                     = 14;
 input double InpSL_ATRMultiplier           = 0.85;
 input double InpTP_ATRMultiplier           = 1.20;
 input double InpMinStopPoints              = 80.0;
 input double InpMinTargetPoints            = 80.0;
 
+input group "Regime Filters"
+input bool InpEnableRegimeFilter           = true;
+input double InpMinATRPoints               = 90.0;
+input double InpMaxATRPoints               = 900.0;
+input int InpSpreadRankLookbackTicks       = 120;
+input double InpMaxSpreadRankPercentile    = 0.80;
+input double InpSpreadToATRMaxRatio        = 0.18;
+
 input group "Position Management"
 input int InpMaxHoldingSeconds             = 180;
+input bool InpUseAdaptiveTimeStop          = true;
+input int InpLowVolHoldingSeconds          = 240;
+input int InpNormalVolHoldingSeconds       = 180;
+input int InpHighVolHoldingSeconds         = 90;
+input double InpLowVolATRPoints            = 130.0;
+input double InpHighVolATRPoints           = 280.0;
 input bool InpCloseOnOppositeSignal        = true;
+input bool InpEnablePartialTP              = true;
+input double InpPartialCloseAtRR           = 1.00;
+input double InpPartialClosePercent        = 0.50;
 input double InpBreakevenTriggerATR        = 0.45;
 input double InpBreakevenOffsetPoints      = 10.0;
 input double InpTrailingATRMultiplier      = 0.55;
+input bool InpTightenTrailAfter1R          = true;
+input double InpTightTrailATRMultiplier    = 0.35;
+input double InpPostPartialTrailATRMultiplier = 0.30;
 
 input group "Risk Controls"
 input bool InpUseRiskPercent               = true;
@@ -67,14 +91,29 @@ input double InpFixedLot                   = 0.01;
 input double InpDailyLossLimitPercent      = 2.50;
 input int InpMaxConsecutiveLosses          = 4;
 
+input group "Diagnostics"
+input bool InpEnableDiagnostics            = true;
+input int InpDiagnosticsPrintIntervalSeconds = 300;
+
 // Keep this buffer compact for speed while still covering short windows.
 #define TICK_BUFFER_SIZE 1024
+#define SPREAD_BUFFER_SIZE 512
+#define BLOCK_REASON_TOTAL 7
+
+#define BLOCK_SESSION 0
+#define BLOCK_SPREAD 1
+#define BLOCK_REGIME 2
+#define BLOCK_RISK 3
+#define BLOCK_COOLDOWN 4
+#define BLOCK_TICKRATE 5
+#define BLOCK_SIGNAL_QUALITY 6
 
 struct TradeSignal
 {
    int direction;         // 1 = buy, -1 = sell, 0 = no-trade
    double stop_points;
    double target_points;
+   int quality_flags;     // bitmask for diagnostics when setup is rejected
 };
 
 CTrade trade;
@@ -90,11 +129,17 @@ int g_atr_handle = INVALID_HANDLE;
 uint g_tick_times[TICK_BUFFER_SIZE];
 int g_tick_count = 0;
 int g_tick_cursor = 0;
+double g_spread_points_history[SPREAD_BUFFER_SIZE];
+int g_spread_count = 0;
+int g_spread_cursor = 0;
 
 datetime g_last_trade_action_time = 0;
 datetime g_last_risk_refresh_time = 0;
 double g_daily_pnl = 0.0;
 int g_consecutive_losses = 0;
+int g_daily_closed_trades = 0;
+int g_daily_wins = 0;
+int g_daily_losses = 0;
 datetime g_last_block_log_time = 0;
 string g_last_block_reason = "";
 double g_effective_max_spread_points = 0.0;
@@ -102,6 +147,15 @@ int g_effective_max_slippage_points = 0;
 int g_effective_cooldown_seconds = 0;
 int g_effective_min_ticks_window = 0;
 bool g_use_ecn_post_fill_stops = false;
+long g_block_counts[BLOCK_REASON_TOTAL];
+long g_entries_count = 0;
+datetime g_last_diag_print_time = 0;
+ulong g_managed_ticket = 0;
+double g_managed_initial_volume = 0.0;
+double g_managed_initial_risk_points = 0.0;
+bool g_managed_partial_done = false;
+
+void LogBlockReason(const string reason);
 
 string ToUpperText(const string source)
 {
@@ -328,12 +382,21 @@ bool IsTradingSessionOpen()
    return (hour_now >= InpSessionStartHour || hour_now < InpSessionEndHour);
 }
 
-void RegisterTick()
+void RegisterTick(const MqlTick &tick)
 {
    g_tick_times[g_tick_cursor] = GetTickCount();
    g_tick_cursor = (g_tick_cursor + 1) % TICK_BUFFER_SIZE;
    if(g_tick_count < TICK_BUFFER_SIZE)
       g_tick_count++;
+
+   double spread_points = (tick.ask - tick.bid) / g_point;
+   if(spread_points < 0.0)
+      spread_points = 0.0;
+
+   g_spread_points_history[g_spread_cursor] = spread_points;
+   g_spread_cursor = (g_spread_cursor + 1) % SPREAD_BUFFER_SIZE;
+   if(g_spread_count < SPREAD_BUFFER_SIZE)
+      g_spread_count++;
 }
 
 int TicksInWindow(const int window_seconds)
@@ -354,6 +417,168 @@ int TicksInWindow(const int window_seconds)
    }
 
    return count;
+}
+
+double SpreadRankPercentile(const double spread_points, const int requested_lookback)
+{
+   if(g_spread_count <= 0)
+      return 0.0;
+
+   int sample = requested_lookback;
+   if(sample <= 0)
+      sample = g_spread_count;
+   if(sample > g_spread_count)
+      sample = g_spread_count;
+   if(sample <= 0)
+      return 0.0;
+
+   int less_or_equal = 0;
+   for(int i = 0; i < sample; i++)
+   {
+      int idx = g_spread_cursor - 1 - i;
+      while(idx < 0)
+         idx += SPREAD_BUFFER_SIZE;
+      if(g_spread_points_history[idx] <= spread_points + 0.000001)
+         less_or_equal++;
+   }
+
+   return (double)less_or_equal / (double)sample;
+}
+
+void ResetManagedPositionState()
+{
+   g_managed_ticket = 0;
+   g_managed_initial_volume = 0.0;
+   g_managed_initial_risk_points = 0.0;
+   g_managed_partial_done = false;
+}
+
+void UpdateManagedPositionState(const ulong ticket,
+                                const ENUM_POSITION_TYPE type,
+                                const double open_price,
+                                const double sl,
+                                const double volume)
+{
+   if(ticket == 0)
+      return;
+
+   if(g_managed_ticket != ticket)
+   {
+      g_managed_ticket = ticket;
+      g_managed_initial_volume = volume;
+      g_managed_partial_done = false;
+
+      if(type == POSITION_TYPE_BUY && sl > 0.0 && sl < open_price)
+         g_managed_initial_risk_points = (open_price - sl) / g_point;
+      else if(type == POSITION_TYPE_SELL && sl > open_price)
+         g_managed_initial_risk_points = (sl - open_price) / g_point;
+      else
+         g_managed_initial_risk_points = InpMinStopPoints;
+   }
+   else
+   {
+      const double lot_step = SymbolInfoDouble(g_symbol, SYMBOL_VOLUME_STEP);
+      const double threshold = (lot_step > 0.0 ? lot_step : 0.01) * 0.5;
+      if(g_managed_initial_volume > 0.0 && volume < (g_managed_initial_volume - threshold))
+         g_managed_partial_done = true;
+   }
+}
+
+void RegisterBlock(const int block_code, const string reason)
+{
+   if(block_code >= 0 && block_code < BLOCK_REASON_TOTAL)
+      g_block_counts[block_code]++;
+   LogBlockReason(reason);
+}
+
+bool RegimeAllowsEntry(const double atr_points, const double spread_points, string &reason)
+{
+   reason = "";
+   if(!InpEnableRegimeFilter)
+      return true;
+
+   if(InpMinATRPoints > 0.0 && atr_points < InpMinATRPoints)
+   {
+      reason = StringFormat("regime low volatility atr=%.1f < %.1f", atr_points, InpMinATRPoints);
+      return false;
+   }
+
+   if(InpMaxATRPoints > 0.0 && atr_points > InpMaxATRPoints)
+   {
+      reason = StringFormat("regime high volatility atr=%.1f > %.1f", atr_points, InpMaxATRPoints);
+      return false;
+   }
+
+   if(InpSpreadToATRMaxRatio > 0.0 && atr_points > 0.0)
+   {
+      const double spread_ratio = spread_points / atr_points;
+      if(spread_ratio > InpSpreadToATRMaxRatio)
+      {
+         reason = StringFormat("spread/atr ratio %.3f > %.3f", spread_ratio, InpSpreadToATRMaxRatio);
+         return false;
+      }
+   }
+
+   if(InpSpreadRankLookbackTicks > 8 &&
+      InpMaxSpreadRankPercentile > 0.0 &&
+      g_spread_count >= 25)
+   {
+      const double spread_rank = SpreadRankPercentile(spread_points, InpSpreadRankLookbackTicks);
+      if(spread_rank > InpMaxSpreadRankPercentile)
+      {
+         reason = StringFormat("spread rank %.2f > %.2f", spread_rank, InpMaxSpreadRankPercentile);
+         return false;
+      }
+   }
+
+   return true;
+}
+
+int EffectiveMaxHoldingSeconds(const double atr_points)
+{
+   if(!InpUseAdaptiveTimeStop)
+      return InpMaxHoldingSeconds;
+
+   int max_hold = InpMaxHoldingSeconds;
+   if(InpNormalVolHoldingSeconds > 0)
+      max_hold = InpNormalVolHoldingSeconds;
+
+   if(InpHighVolHoldingSeconds > 0 && atr_points >= InpHighVolATRPoints)
+      max_hold = InpHighVolHoldingSeconds;
+   else if(InpLowVolHoldingSeconds > 0 && atr_points <= InpLowVolATRPoints)
+      max_hold = InpLowVolHoldingSeconds;
+
+   return max_hold;
+}
+
+void MaybePrintDiagnostics()
+{
+   if(!InpEnableDiagnostics)
+      return;
+
+   const datetime now = TimeCurrent();
+   if(now <= 0)
+      return;
+
+   if(InpDiagnosticsPrintIntervalSeconds > 0 &&
+      g_last_diag_print_time > 0 &&
+      (now - g_last_diag_print_time) < InpDiagnosticsPrintIntervalSeconds)
+      return;
+
+   g_last_diag_print_time = now;
+   PrintFormat("Diag: entries=%I64d dailyClosed=%d wins=%d losses=%d dailyPnL=%.2f blocks[s=%I64d sp=%I64d rg=%I64d rk=%I64d cd=%I64d tk=%I64d sq=%I64d]",
+               g_entries_count,
+               g_daily_closed_trades,
+               g_daily_wins,
+               g_daily_losses,
+               g_daily_pnl,
+               g_block_counts[BLOCK_SESSION],
+               g_block_counts[BLOCK_SPREAD],
+               g_block_counts[BLOCK_REGIME],
+               g_block_counts[BLOCK_RISK],
+               g_block_counts[BLOCK_COOLDOWN],
+               g_block_counts[BLOCK_TICKRATE],
+               g_block_counts[BLOCK_SIGNAL_QUALITY]);
 }
 
 bool SpreadAllowed(const MqlTick &tick, double &spread_points)
@@ -417,9 +642,10 @@ bool GenerateSignal(const MqlTick &tick,
    signal.direction = 0;
    signal.stop_points = 0.0;
    signal.target_points = 0.0;
+   signal.quality_flags = 0;
 
-   const int bars_needed = InpBreakoutLookbackBars + 2;
-   if(bars_needed < 4)
+   const int bars_needed = InpBreakoutLookbackBars + 3;
+   if(bars_needed < 5)
       return false;
 
    MqlRates rates[];
@@ -429,43 +655,98 @@ bool GenerateSignal(const MqlTick &tick,
 
    double highest = -DBL_MAX;
    double lowest = DBL_MAX;
-   for(int i = 1; i <= InpBreakoutLookbackBars; i++)
+   for(int i = 2; i <= (InpBreakoutLookbackBars + 1); i++)
    {
       highest = MathMax(highest, rates[i].high);
       lowest = MathMin(lowest, rates[i].low);
    }
 
+   const MqlRates impulse_bar = rates[1];
+   const MqlRates prev_bar = rates[2];
+   const double impulse_range_price = impulse_bar.high - impulse_bar.low;
+   const double impulse_range_points = impulse_range_price / g_point;
+   double impulse_body_percent = 0.0;
+   if(impulse_range_price > 0.0)
+      impulse_body_percent = (MathAbs(impulse_bar.close - impulse_bar.open) / impulse_range_price) * 100.0;
+
+   const bool impulse_body_ok = (impulse_body_percent >= InpMinImpulseBodyPercent &&
+                                 impulse_range_points >= InpMinImpulseRangePoints);
+   const bool impulse_bullish = (impulse_bar.close > impulse_bar.open);
+   const bool impulse_bearish = (impulse_bar.close < impulse_bar.open);
+
    const double ema_gap_points = MathAbs(ema_fast - ema_slow) / g_point;
    const bool trend_up = (ema_fast > ema_slow && ema_fast_prev >= ema_slow_prev && ema_gap_points >= InpMinEMAGapPoints);
    const bool trend_down = (ema_fast < ema_slow && ema_fast_prev <= ema_slow_prev && ema_gap_points >= InpMinEMAGapPoints);
-   const bool bullish_breakout = (tick.bid > highest);
-   const bool bearish_breakout = (tick.ask < lowest);
+   const bool bullish_breakout_live = (tick.bid > highest);
+   const bool bearish_breakout_live = (tick.ask < lowest);
+   const bool bullish_breakout_closed = (impulse_bar.close > highest);
+   const bool bearish_breakout_closed = (impulse_bar.close < lowest);
+
+   const double pullback_price = MathMax(atr * InpPullbackATRDistance, g_point * 6.0);
+   bool bullish_pullback = false;
+   bool bearish_pullback = false;
+   if(InpEnablePullbackEntry)
+   {
+      bullish_pullback = (bullish_breakout_closed &&
+                          tick.bid >= (highest - pullback_price) &&
+                          tick.bid <= (highest + pullback_price * 1.5) &&
+                          tick.bid >= (ema_fast - pullback_price));
+      bearish_pullback = (bearish_breakout_closed &&
+                          tick.ask <= (lowest + pullback_price) &&
+                          tick.ask >= (lowest - pullback_price * 1.5) &&
+                          tick.ask <= (ema_fast + pullback_price));
+   }
 
    bool volume_ok = true;
-   if(InpMinVolumeImpulse > 0.0 && rates[1].tick_volume > 0)
+   if(InpMinVolumeImpulse > 0.0 && prev_bar.tick_volume > 0)
    {
-      const double impulse = (double)rates[0].tick_volume / (double)rates[1].tick_volume;
+      const double impulse = (double)impulse_bar.tick_volume / (double)prev_bar.tick_volume;
       volume_ok = (impulse >= InpMinVolumeImpulse);
    }
+
+    const bool long_rsi_ok = (rsi > 50.0 && rsi < InpRSIOverbought);
+    const bool short_rsi_ok = (rsi < 50.0 && rsi > InpRSIOversold);
+    const bool long_trigger = (bullish_breakout_live || bullish_pullback);
+    const bool short_trigger = (bearish_breakout_live || bearish_pullback);
 
    const double atr_points = atr / g_point;
    const double stop_points = MathMax(InpMinStopPoints, atr_points * InpSL_ATRMultiplier);
    const double target_points = MathMax(InpMinTargetPoints, atr_points * InpTP_ATRMultiplier);
+   signal.stop_points = stop_points;
+   signal.target_points = target_points;
 
-   if(trend_up && bullish_breakout && volume_ok && rsi > 50.0 && rsi < InpRSIOverbought)
+   if(trend_up && long_trigger)
    {
-      signal.direction = 1;
-      signal.stop_points = stop_points;
-      signal.target_points = target_points;
-      return true;
+      int flags = 0;
+      if(!volume_ok)
+         flags |= 1;
+      if(!impulse_body_ok || !impulse_bullish)
+         flags |= 2;
+      if(!long_rsi_ok)
+         flags |= 4;
+      if(flags == 0)
+      {
+         signal.direction = 1;
+         return true;
+      }
+      signal.quality_flags |= flags;
    }
 
-   if(trend_down && bearish_breakout && volume_ok && rsi < 50.0 && rsi > InpRSIOversold)
+   if(trend_down && short_trigger)
    {
-      signal.direction = -1;
-      signal.stop_points = stop_points;
-      signal.target_points = target_points;
-      return true;
+      int flags = 0;
+      if(!volume_ok)
+         flags |= 1;
+      if(!impulse_body_ok || !impulse_bearish)
+         flags |= 2;
+      if(!short_rsi_ok)
+         flags |= 4;
+      if(flags == 0)
+      {
+         signal.direction = -1;
+         return true;
+      }
+      signal.quality_flags |= flags;
    }
 
    return true;
@@ -517,6 +798,9 @@ void UpdateRiskStats()
 
    g_daily_pnl = 0.0;
    g_consecutive_losses = 0;
+   g_daily_closed_trades = 0;
+   g_daily_wins = 0;
+   g_daily_losses = 0;
    bool reached_last_win = false;
 
    const int deals_total = HistoryDealsTotal();
@@ -538,6 +822,11 @@ void UpdateRiskStats()
                        + HistoryDealGetDouble(ticket, DEAL_SWAP)
                        + HistoryDealGetDouble(ticket, DEAL_COMMISSION);
       g_daily_pnl += pnl;
+      g_daily_closed_trades++;
+      if(pnl > 0.00001)
+         g_daily_wins++;
+      else if(pnl < -0.00001)
+         g_daily_losses++;
 
       if(!reached_last_win)
       {
@@ -597,14 +886,25 @@ void ManagePosition(const MqlTick &tick, const int signal_direction, const doubl
    double tp = 0.0;
    double volume = 0.0;
    if(!GetOpenPosition(ticket, type, open_price, open_time, sl, tp, volume))
+   {
+      ResetManagedPositionState();
+      return;
+   }
+
+   UpdateManagedPositionState(ticket, type, open_price, sl, volume);
+
+   const double atr_points = atr / g_point;
+   if(atr_points <= 0.0)
       return;
 
-   if(InpMaxHoldingSeconds > 0 && (TimeCurrent() - open_time) >= InpMaxHoldingSeconds)
+   const int max_holding_seconds = EffectiveMaxHoldingSeconds(atr_points);
+   if(max_holding_seconds > 0 && (TimeCurrent() - open_time) >= max_holding_seconds)
    {
       if(trade.PositionClose(g_symbol))
       {
          g_last_trade_action_time = TimeCurrent();
          Print("Position closed by max holding time.");
+         ResetManagedPositionState();
       }
       return;
    }
@@ -618,27 +918,71 @@ void ManagePosition(const MqlTick &tick, const int signal_direction, const doubl
          {
             g_last_trade_action_time = TimeCurrent();
             Print("Position closed by opposite signal.");
+            ResetManagedPositionState();
          }
          return;
       }
    }
 
-   const double atr_points = atr / g_point;
-   if(atr_points <= 0.0)
-      return;
-
    const int stops_level = (int)SymbolInfoInteger(g_symbol, SYMBOL_TRADE_STOPS_LEVEL);
    const double min_distance = MathMax((double)stops_level, 1.0) * g_point;
    const double be_trigger_points = atr_points * InpBreakevenTriggerATR;
-   const double trail_points = atr_points * InpTrailingATRMultiplier;
+   const double base_trail_multiplier = MathMax(InpTrailingATRMultiplier, 0.01);
    const double be_offset = InpBreakevenOffsetPoints * g_point;
+   const double profit_points = (type == POSITION_TYPE_BUY)
+                                ? ((tick.bid - open_price) / g_point)
+                                : ((open_price - tick.ask) / g_point);
+   const double reference_risk_points = MathMax(g_managed_initial_risk_points, MathMax(InpMinStopPoints, 1.0));
+
+   if(InpEnablePartialTP &&
+      !g_managed_partial_done &&
+      InpPartialClosePercent > 0.0 &&
+      InpPartialClosePercent < 1.0 &&
+      InpPartialCloseAtRR > 0.0 &&
+      profit_points >= (reference_risk_points * InpPartialCloseAtRR))
+   {
+      const double min_lot = SymbolInfoDouble(g_symbol, SYMBOL_VOLUME_MIN);
+      const double lot_step = SymbolInfoDouble(g_symbol, SYMBOL_VOLUME_STEP);
+      double remain_target = volume - min_lot;
+      if(remain_target > 0.0)
+         remain_target = NormalizeVolume(remain_target);
+      double close_volume = NormalizeVolume(volume * InpPartialClosePercent);
+      if(remain_target > 0.0 && close_volume > remain_target)
+         close_volume = remain_target;
+
+      const double step_threshold = (lot_step > 0.0 ? lot_step : 0.01) * 0.5;
+      if(close_volume >= min_lot && close_volume < (volume - step_threshold))
+      {
+         if(trade.PositionClosePartial(g_symbol, close_volume))
+         {
+            g_last_trade_action_time = TimeCurrent();
+            g_managed_partial_done = true;
+            PrintFormat("Partial close executed: %.2f lots at %.2fR",
+                        close_volume,
+                        profit_points / reference_risk_points);
+         }
+         else
+         {
+            PrintFormat("PositionClosePartial failed. retcode=%u (%s)",
+                        trade.ResultRetcode(),
+                        trade.ResultRetcodeDescription());
+         }
+      }
+   }
+
+   double trail_multiplier = base_trail_multiplier;
+   if(InpTightenTrailAfter1R && InpTightTrailATRMultiplier > 0.0 && profit_points >= reference_risk_points)
+      trail_multiplier = MathMin(trail_multiplier, InpTightTrailATRMultiplier);
+   if(g_managed_partial_done && InpPostPartialTrailATRMultiplier > 0.0)
+      trail_multiplier = MathMin(trail_multiplier, InpPostPartialTrailATRMultiplier);
+
+   const double trail_points = atr_points * MathMax(trail_multiplier, 0.01);
 
    bool modify_needed = false;
    double new_sl = sl;
 
    if(type == POSITION_TYPE_BUY)
    {
-      const double profit_points = (tick.bid - open_price) / g_point;
       if(profit_points >= be_trigger_points)
       {
          const double be_level = open_price + be_offset;
@@ -667,7 +1011,6 @@ void ManagePosition(const MqlTick &tick, const int signal_direction, const doubl
    }
    else if(type == POSITION_TYPE_SELL)
    {
-      const double profit_points = (open_price - tick.ask) / g_point;
       if(profit_points >= be_trigger_points)
       {
          const double be_level = open_price - be_offset;
@@ -794,6 +1137,7 @@ bool PlaceEntry(const int direction, double stop_points, double target_points, c
    }
 
    g_last_trade_action_time = TimeCurrent();
+   g_entries_count++;
    PrintFormat("Entry placed: dir=%d lots=%.2f sl=%.2f tp=%.2f mode=%s",
                direction,
                volume,
@@ -838,19 +1182,29 @@ int OnInit()
    ConfigureExecutionProfile();
 
    ArrayInitialize(g_tick_times, 0);
+   ArrayInitialize(g_spread_points_history, 0.0);
+   ArrayInitialize(g_block_counts, 0);
    g_tick_count = 0;
    g_tick_cursor = 0;
+   g_spread_count = 0;
+   g_spread_cursor = 0;
+   g_entries_count = 0;
+   g_last_diag_print_time = 0;
+   ResetManagedPositionState();
    UpdateRiskStats();
    EventSetTimer(1);
 
-   PrintFormat("UF XAUUSD scalper initialized on %s (%s), mode=%s spread<=%.1f slip<=%d cooldown=%ds minTicks=%d.",
+   PrintFormat("UF XAUUSD scalper initialized on %s (%s), mode=%s spread<=%.1f slip<=%d cooldown=%ds minTicks=%d regime[%s atr %.1f..%.1f].",
                g_symbol,
                EnumToString(InpSignalTF),
                ExecutionModeLabel(),
                g_effective_max_spread_points,
                g_effective_max_slippage_points,
                g_effective_cooldown_seconds,
-               g_effective_min_ticks_window);
+               g_effective_min_ticks_window,
+               (InpEnableRegimeFilter ? "on" : "off"),
+               InpMinATRPoints,
+               InpMaxATRPoints);
    if(g_symbol != _Symbol)
       Print("Attach EA to chart symbol matching InpTradeSymbol for best tick frequency.");
 
@@ -873,6 +1227,7 @@ void OnDeinit(const int reason)
 void OnTimer()
 {
    UpdateRiskStats();
+   MaybePrintDiagnostics();
 }
 
 void OnTick()
@@ -881,7 +1236,7 @@ void OnTick()
    if(!SymbolInfoTick(g_symbol, tick))
       return;
 
-   RegisterTick();
+   RegisterTick(tick);
 
    double ema_fast = 0.0;
    double ema_slow = 0.0;
@@ -909,31 +1264,43 @@ void OnTick()
       return;
 
    if(signal.direction == 0)
+   {
+      if(signal.quality_flags != 0)
+         RegisterBlock(BLOCK_SIGNAL_QUALITY, StringFormat("signal rejected flags=%d", signal.quality_flags));
       return;
+   }
 
    if(!IsTradingSessionOpen())
    {
-      LogBlockReason("outside configured session");
+      RegisterBlock(BLOCK_SESSION, "outside configured session");
       return;
    }
 
    double spread_points = 0.0;
    if(!SpreadAllowed(tick, spread_points))
    {
-      LogBlockReason(StringFormat("spread %.1f > %.1f", spread_points, g_effective_max_spread_points));
+      RegisterBlock(BLOCK_SPREAD, StringFormat("spread %.1f > %.1f", spread_points, g_effective_max_spread_points));
+      return;
+   }
+
+   const double atr_points = atr / g_point;
+   string regime_reason = "";
+   if(!RegimeAllowsEntry(atr_points, spread_points, regime_reason))
+   {
+      RegisterBlock(BLOCK_REGIME, regime_reason);
       return;
    }
 
    string risk_reason = "";
    if(!RiskGuardsAllowEntry(risk_reason))
    {
-      LogBlockReason(risk_reason);
+      RegisterBlock(BLOCK_RISK, risk_reason);
       return;
    }
 
    if(g_effective_cooldown_seconds > 0 && (TimeCurrent() - g_last_trade_action_time) < g_effective_cooldown_seconds)
    {
-      LogBlockReason("cooldown active");
+      RegisterBlock(BLOCK_COOLDOWN, "cooldown active");
       return;
    }
 
@@ -942,7 +1309,7 @@ void OnTick()
       const int ticks_now = TicksInWindow(InpTickRateWindowSeconds);
       if(ticks_now < g_effective_min_ticks_window)
       {
-         LogBlockReason(StringFormat("tick-rate %d below %d", ticks_now, g_effective_min_ticks_window));
+         RegisterBlock(BLOCK_TICKRATE, StringFormat("tick-rate %d below %d", ticks_now, g_effective_min_ticks_window));
          return;
       }
    }

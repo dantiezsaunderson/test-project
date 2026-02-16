@@ -12,7 +12,10 @@ It is designed for low-latency scalp execution while keeping strict live-account
 - session filter
 - standard and ECN low-spread execution profiles
 - ATR-based dynamic SL/TP
-- breakeven + trailing management
+- regime filter (ATR band + spread rank + spread/ATR ratio)
+- breakeven + adaptive trailing management
+- optional pullback entries after breakout
+- optional partial take-profit at R-multiple
 - daily loss cap and max consecutive losses
 
 ## Important reality check
@@ -51,17 +54,43 @@ Entry requires all of the following:
 
 1. Trend alignment from EMA fast/slow.
 2. Breakout of recent micro-range (`InpBreakoutLookbackBars`).
-3. RSI confirmation (avoid extreme exhaustion).
-4. Tick-volume impulse filter.
-5. Spread, session, risk, and tick-rate filters all pass.
+3. Closed-bar impulse quality check (body % and range points).
+4. RSI confirmation (avoid extreme exhaustion).
+5. Tick-volume impulse filter.
+6. Optional pullback re-entry around breakout level.
+7. Spread, session, regime, risk, and tick-rate filters all pass.
 
 Position handling:
 
 - hard SL/TP at entry (ATR-derived)
 - optional close on opposite signal
 - breakeven trigger
-- ATR trailing stop
-- max holding time safety close
+- ATR trailing stop (can tighten after 1R)
+- optional partial close at configurable R-multiple
+- adaptive max holding time by volatility regime
+
+## Regime filters (new)
+
+Use these to avoid dead/chaotic conditions before optimization:
+
+- `InpEnableRegimeFilter`
+- `InpMinATRPoints`, `InpMaxATRPoints`
+- `InpSpreadRankLookbackTicks`, `InpMaxSpreadRankPercentile`
+- `InpSpreadToATRMaxRatio`
+
+This reduces entries when spread is unusually expensive relative to recent market state.
+
+## Diagnostics (new)
+
+The EA now tracks reason-code counters and periodic diagnostics:
+
+- blocked by session/spread/regime/risk/cooldown/tick-rate/signal-quality
+- daily closed trades, wins, losses, and PnL
+
+Main inputs:
+
+- `InpEnableDiagnostics`
+- `InpDiagnosticsPrintIntervalSeconds`
 
 ## Execution profiles
 
@@ -103,10 +132,11 @@ For low-spread ECN accounts, try:
 ## Optimization workflow
 
 1. Backtest with **real tick data** and realistic spread/slippage.
-2. Forward test on demo with same VPS/broker environment as live.
-3. Keep optimization windows small to reduce curve-fit.
-4. Validate out-of-sample periods.
-5. Move to tiny live size first.
+2. Tune execution+regime filters first (`spread/slippage/cooldown/tick-rate/regime`).
+3. Tune exits next (`SL/TP ATR multipliers`, adaptive hold, trailing, partial TP).
+4. Tune signal sensitivity last (`EMA/RSI/lookback/impulse settings`).
+5. Validate out-of-sample periods and then forward test on demo.
+6. Move to tiny live size first.
 
 ## VPS and execution requirements
 

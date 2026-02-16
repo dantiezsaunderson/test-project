@@ -12,12 +12,13 @@ This repository now includes an MT5 Expert Advisor focused on fast XAUUSD scalp 
 
 - EMA + breakout + RSI + volume-impulse signal logic
 - symbol auto-detection for broker variants (`XAUUSDm`, `XAUUSD.pro`, etc.)
-- spread/slippage/session/tick-rate filters
+- spread/slippage/session/tick-rate/regime filters
 - STANDARD and ECN low-spread execution modes
-- ATR-based SL/TP sizing
-- breakeven and trailing stop management
+- ATR-based SL/TP sizing with adaptive time-stop
+- breakeven, adaptive trailing, and optional partial take-profit
 - max holding time exit
 - daily loss and consecutive-loss guards
+- built-in diagnostics counters for blocked trade reasons
 
 ## Next Step
 
