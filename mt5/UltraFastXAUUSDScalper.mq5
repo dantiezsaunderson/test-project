@@ -1,5 +1,5 @@
 #property strict
-#property version   "1.30"
+#property version   "1.31"
 #property description "Ultra-fast XAUUSD scalper template with live-account risk controls."
 
 #include <Trade/Trade.mqh>
@@ -210,6 +210,19 @@ string ResolveTradeSymbol(const string requested_symbol)
    string requested = requested_symbol;
    if(StringLen(requested) == 0)
       requested = _Symbol;
+
+   // In Strategy Tester, always use the tested symbol to avoid
+   // no-trade runs caused by broker suffix mismatches.
+   if((bool)MQLInfoInteger(MQL_TESTER))
+   {
+      if(requested != _Symbol)
+      {
+         PrintFormat("Tester mode: forcing symbol to '%s' (requested '%s').",
+                     _Symbol,
+                     requested);
+      }
+      return _Symbol;
+   }
 
    if(SymbolSelect(requested, true))
       return requested;

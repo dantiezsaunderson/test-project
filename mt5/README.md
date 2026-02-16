@@ -36,6 +36,8 @@ This EA is built to be **as fast and robust as possible in retail conditions**, 
 
 The EA can auto-resolve broker naming variants when exact `InpTradeSymbol` is unavailable.
 
+In MT5 Strategy Tester specifically, the EA now forces `InpTradeSymbol` to the tested chart symbol (`_Symbol`) to prevent no-trade optimization runs from suffix mismatches.
+
 Key inputs:
 
 - `InpAutoDetectSymbolSuffix = true`
