@@ -62,6 +62,13 @@ Entry requires all of the following:
 6. Optional pullback re-entry around breakout level.
 7. Spread, session, regime, risk, and tick-rate filters all pass.
 
+Signal quality filters are now configurable (not hard all-or-nothing):
+
+- `InpUseRSIQualityFilter` (default `false`)
+- `InpUseVolumeQualityFilter`
+- `InpUseImpulseQualityFilter`
+- `InpMinQualityChecksToPass` (minimum number of enabled quality checks that must pass)
+
 Position handling:
 
 - hard SL/TP at entry (ATR-derived)
@@ -162,7 +169,9 @@ If optimization returns mostly 0 trades:
    - `InpMinImpulseBodyPercent`
    - `InpMinImpulseRangePoints`
    - `InpMinVolumeImpulse`
+   - `InpMinQualityChecksToPass`
 3. Set `InpEnableRegimeFilter=false` for one discovery pass, then re-enable and refine.
+4. Keep `InpUseRSIQualityFilter=false` until you already have tradable candidates.
 
 ## VPS and execution requirements
 

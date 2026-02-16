@@ -1,5 +1,5 @@
 #property strict
-#property version   "1.31"
+#property version   "1.32"
 #property description "Ultra-fast XAUUSD scalper template with live-account risk controls."
 
 #include <Trade/Trade.mqh>
@@ -44,11 +44,17 @@ input int InpSlowEMAPeriod                 = 21;
 input int InpRSIPeriod                     = 8;
 input double InpRSIOverbought              = 72.0;
 input double InpRSIOversold                = 28.0;
+input bool InpUseRSIQualityFilter          = false;
+input double InpRSILongLowerBound          = 42.0;
+input double InpRSIShortUpperBound         = 58.0;
 input double InpMinEMAGapPoints            = 5.0;
 input int InpBreakoutLookbackBars          = 8;
 input double InpMinVolumeImpulse           = 1.03;
+input bool InpUseVolumeQualityFilter       = true;
 input double InpMinImpulseBodyPercent      = 45.0;
 input double InpMinImpulseRangePoints      = 15.0;
+input bool InpUseImpulseQualityFilter      = true;
+input int InpMinQualityChecksToPass        = 1;
 input bool InpEnablePullbackEntry          = true;
 input double InpPullbackATRDistance        = 0.22;
 input int InpATRPeriod                     = 14;
@@ -731,16 +737,22 @@ bool GenerateSignal(const MqlTick &tick,
    }
 
    bool volume_ok = true;
-   if(InpMinVolumeImpulse > 0.0 && prev_bar.tick_volume > 0)
+   if(InpUseVolumeQualityFilter && InpMinVolumeImpulse > 0.0 && prev_bar.tick_volume > 0)
    {
       const double impulse = (double)impulse_bar.tick_volume / (double)prev_bar.tick_volume;
       volume_ok = (impulse >= InpMinVolumeImpulse);
    }
 
-    const bool long_rsi_ok = (rsi > 50.0 && rsi < InpRSIOverbought);
-    const bool short_rsi_ok = (rsi < 50.0 && rsi > InpRSIOversold);
-    const bool long_trigger = (bullish_breakout_live || bullish_pullback);
-    const bool short_trigger = (bearish_breakout_live || bearish_pullback);
+   bool long_rsi_ok = true;
+   bool short_rsi_ok = true;
+   if(InpUseRSIQualityFilter)
+   {
+      long_rsi_ok = (rsi > InpRSILongLowerBound && rsi < InpRSIOverbought);
+      short_rsi_ok = (rsi < InpRSIShortUpperBound && rsi > InpRSIOversold);
+   }
+
+   const bool long_trigger = (bullish_breakout_live || bullish_pullback);
+   const bool short_trigger = (bearish_breakout_live || bearish_pullback);
 
    const double atr_points = atr / g_point;
    const double stop_points = MathMax(InpMinStopPoints, atr_points * InpSL_ATRMultiplier);
@@ -750,36 +762,92 @@ bool GenerateSignal(const MqlTick &tick,
 
    if(trend_up && long_trigger)
    {
+      int checks = 0;
+      int passes = 0;
       int flags = 0;
-      if(!volume_ok)
-         flags |= 1;
-      if(!impulse_body_ok || !impulse_bullish)
-         flags |= 2;
-      if(!long_rsi_ok)
-         flags |= 4;
-      if(flags == 0)
+      if(InpUseVolumeQualityFilter)
+      {
+         checks++;
+         if(volume_ok)
+            passes++;
+         else
+            flags |= 1;
+      }
+      if(InpUseImpulseQualityFilter)
+      {
+         checks++;
+         if(impulse_body_ok && impulse_bullish)
+            passes++;
+         else
+            flags |= 2;
+      }
+      if(InpUseRSIQualityFilter)
+      {
+         checks++;
+         if(long_rsi_ok)
+            passes++;
+         else
+            flags |= 4;
+      }
+
+      int min_quality_pass = InpMinQualityChecksToPass;
+      if(min_quality_pass < 0)
+         min_quality_pass = 0;
+      if(min_quality_pass > checks)
+         min_quality_pass = checks;
+
+      if(passes >= min_quality_pass)
       {
          signal.direction = 1;
          return true;
       }
-      signal.quality_flags |= flags;
+      if(flags != 0)
+         signal.quality_flags |= flags;
    }
 
    if(trend_down && short_trigger)
    {
+      int checks = 0;
+      int passes = 0;
       int flags = 0;
-      if(!volume_ok)
-         flags |= 1;
-      if(!impulse_body_ok || !impulse_bearish)
-         flags |= 2;
-      if(!short_rsi_ok)
-         flags |= 4;
-      if(flags == 0)
+      if(InpUseVolumeQualityFilter)
+      {
+         checks++;
+         if(volume_ok)
+            passes++;
+         else
+            flags |= 1;
+      }
+      if(InpUseImpulseQualityFilter)
+      {
+         checks++;
+         if(impulse_body_ok && impulse_bearish)
+            passes++;
+         else
+            flags |= 2;
+      }
+      if(InpUseRSIQualityFilter)
+      {
+         checks++;
+         if(short_rsi_ok)
+            passes++;
+         else
+            flags |= 4;
+      }
+
+      int min_quality_pass = InpMinQualityChecksToPass;
+      if(min_quality_pass < 0)
+         min_quality_pass = 0;
+      if(min_quality_pass > checks)
+         min_quality_pass = checks;
+
+      if(passes >= min_quality_pass)
       {
          signal.direction = -1;
          return true;
       }
-      signal.quality_flags |= flags;
+      if(flags != 0)
+         signal.quality_flags |= flags;
    }
 
    return true;
