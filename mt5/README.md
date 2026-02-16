@@ -80,6 +80,19 @@ To keep behavior scalper-fast but non-burst:
 
 This avoids machine-gun order bursts while preserving precision entry logic.
 
+## Fallback unblock mode (new)
+
+If no entries occur for an extended period, the EA can temporarily bypass over-restrictive gates to restore trade flow:
+
+- `InpEnableFallbackUnblock`
+- `InpFallbackNoEntryMinutes`
+- `InpFallbackBypassSession`
+- `InpFallbackBypassTickRate`
+- `InpFallbackBypassRegime`
+- `InpFallbackBypassSignalQuality`
+
+This is useful when broker feed or session inputs become too restrictive and the EA stalls.
+
 Position handling:
 
 - hard SL/TP at entry (ATR-derived)

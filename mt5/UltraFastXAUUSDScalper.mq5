@@ -1,5 +1,5 @@
 #property strict
-#property version   "1.40"
+#property version   "1.50"
 #property description "Ultra-fast XAUUSD scalper template with live-account risk controls."
 
 #include <Trade/Trade.mqh>
@@ -76,6 +76,14 @@ input group "Entry Cadence (Anti-HFT)"
 input bool InpRequireNewBarForEntry        = true;
 input int InpMaxEntriesPerHour             = 8;
 
+input group "Fallback Unblock"
+input bool InpEnableFallbackUnblock        = true;
+input int InpFallbackNoEntryMinutes        = 20;
+input bool InpFallbackBypassSession        = true;
+input bool InpFallbackBypassTickRate       = true;
+input bool InpFallbackBypassRegime         = true;
+input bool InpFallbackBypassSignalQuality  = true;
+
 input group "Position Management"
 input int InpMaxHoldingSeconds             = 180;
 input bool InpUseAdaptiveTimeStop          = true;
@@ -129,6 +137,7 @@ input double InpMaxBalanceDDPctForScore    = 15.0;
 struct TradeSignal
 {
    int direction;         // 1 = buy, -1 = sell, 0 = no-trade
+   int candidate_direction; // setup direction before quality rejection
    double stop_points;
    double target_points;
    int quality_flags;     // bitmask for diagnostics when setup is rejected
@@ -166,11 +175,14 @@ int g_effective_cooldown_seconds = 0;
 int g_effective_min_ticks_window = 0;
 bool g_use_ecn_post_fill_stops = false;
 long g_block_counts[BLOCK_REASON_TOTAL];
+long g_blocks_since_entry[BLOCK_REASON_TOTAL];
 long g_entries_count = 0;
 datetime g_last_diag_print_time = 0;
 datetime g_entry_hour_bucket = 0;
 int g_entries_current_hour = 0;
 datetime g_last_entry_bar_time = 0;
+datetime g_start_time = 0;
+datetime g_last_entry_time = 0;
 ulong g_managed_ticket = 0;
 double g_managed_initial_volume = 0.0;
 double g_managed_initial_risk_points = 0.0;
@@ -535,7 +547,10 @@ void UpdateManagedPositionState(const ulong ticket,
 void RegisterBlock(const int block_code, const string reason)
 {
    if(block_code >= 0 && block_code < BLOCK_REASON_TOTAL)
+   {
       g_block_counts[block_code]++;
+      g_blocks_since_entry[block_code]++;
+   }
    LogBlockReason(reason);
 }
 
@@ -659,6 +674,7 @@ void RegisterEntryCadence()
          g_entries_current_hour = 0;
       }
       g_entries_current_hour++;
+      g_last_entry_time = now;
    }
 
    if(InpRequireNewBarForEntry)
@@ -667,6 +683,53 @@ void RegisterEntryCadence()
       if(bar_time > 0)
          g_last_entry_bar_time = bar_time;
    }
+
+   ArrayInitialize(g_blocks_since_entry, 0);
+}
+
+int MinutesSinceLastEntry()
+{
+   const datetime now = TimeCurrent();
+   if(now <= 0)
+      return 0;
+
+   datetime ref = g_last_entry_time;
+   if(ref <= 0)
+      ref = g_start_time;
+   if(ref <= 0)
+      return 0;
+
+   const int minutes = (int)((now - ref) / 60);
+   if(minutes < 0)
+      return 0;
+   return minutes;
+}
+
+bool FallbackUnblockActive()
+{
+   if(!InpEnableFallbackUnblock)
+      return false;
+   if(InpFallbackNoEntryMinutes <= 0)
+      return false;
+
+   return (MinutesSinceLastEntry() >= InpFallbackNoEntryMinutes);
+}
+
+bool ShouldBypassBlock(const int block_code)
+{
+   if(!FallbackUnblockActive())
+      return false;
+
+   if(block_code == BLOCK_SESSION)
+      return InpFallbackBypassSession;
+   if(block_code == BLOCK_TICKRATE)
+      return InpFallbackBypassTickRate;
+   if(block_code == BLOCK_REGIME)
+      return InpFallbackBypassRegime;
+   if(block_code == BLOCK_SIGNAL_QUALITY)
+      return InpFallbackBypassSignalQuality;
+
+   return false;
 }
 
 void MaybePrintDiagnostics()
@@ -684,9 +747,11 @@ void MaybePrintDiagnostics()
       return;
 
    g_last_diag_print_time = now;
-   PrintFormat("Diag: entries=%I64d hourly=%d dailyClosed=%d wins=%d losses=%d dailyPnL=%.2f blocks[s=%I64d sp=%I64d rg=%I64d rk=%I64d cd=%I64d tk=%I64d sq=%I64d ca=%I64d]",
+   PrintFormat("Diag: entries=%I64d hourly=%d noEntryMin=%d fallback=%s dailyClosed=%d wins=%d losses=%d dailyPnL=%.2f blocks[s=%I64d sp=%I64d rg=%I64d rk=%I64d cd=%I64d tk=%I64d sq=%I64d ca=%I64d]",
                g_entries_count,
                g_entries_current_hour,
+               MinutesSinceLastEntry(),
+               (FallbackUnblockActive() ? "on" : "off"),
                g_daily_closed_trades,
                g_daily_wins,
                g_daily_losses,
@@ -760,6 +825,7 @@ bool GenerateSignal(const MqlTick &tick,
                     TradeSignal &signal)
 {
    signal.direction = 0;
+   signal.candidate_direction = 0;
    signal.stop_points = 0.0;
    signal.target_points = 0.0;
    signal.quality_flags = 0;
@@ -847,6 +913,7 @@ bool GenerateSignal(const MqlTick &tick,
 
    if(trend_up && long_trigger)
    {
+      signal.candidate_direction = 1;
       int checks = 0;
       int passes = 0;
       int flags = 0;
@@ -892,6 +959,7 @@ bool GenerateSignal(const MqlTick &tick,
 
    if(trend_down && short_trigger)
    {
+      signal.candidate_direction = -1;
       int checks = 0;
       int passes = 0;
       int flags = 0;
@@ -1371,6 +1439,7 @@ int OnInit()
    ArrayInitialize(g_tick_times, 0);
    ArrayInitialize(g_spread_points_history, 0.0);
    ArrayInitialize(g_block_counts, 0);
+   ArrayInitialize(g_blocks_since_entry, 0);
    g_tick_count = 0;
    g_tick_cursor = 0;
    g_spread_count = 0;
@@ -1380,11 +1449,13 @@ int OnInit()
    g_entry_hour_bucket = 0;
    g_entries_current_hour = 0;
    g_last_entry_bar_time = 0;
+   g_start_time = TimeCurrent();
+   g_last_entry_time = 0;
    ResetManagedPositionState();
    UpdateRiskStats();
    EventSetTimer(1);
 
-   PrintFormat("UF XAUUSD scalper initialized on %s (%s), mode=%s spread<=%.1f slip<=%d cooldown=%ds minTicks=%d regime[%s atr %.1f..%.1f] cadence[newBar=%s max/hr=%d].",
+   PrintFormat("UF XAUUSD scalper initialized on %s (%s), mode=%s spread<=%.1f slip<=%d cooldown=%ds minTicks=%d regime[%s atr %.1f..%.1f] cadence[newBar=%s max/hr=%d] fallback[%s %dmin].",
                g_symbol,
                EnumToString(InpSignalTF),
                ExecutionModeLabel(),
@@ -1396,7 +1467,9 @@ int OnInit()
                InpMinATRPoints,
                InpMaxATRPoints,
                (InpRequireNewBarForEntry ? "on" : "off"),
-               InpMaxEntriesPerHour);
+               InpMaxEntriesPerHour,
+               (InpEnableFallbackUnblock ? "on" : "off"),
+               InpFallbackNoEntryMinutes);
    if(g_symbol != _Symbol)
       Print("Attach EA to chart symbol matching InpTradeSymbol for best tick frequency.");
 
@@ -1458,14 +1531,33 @@ void OnTick()
    if(signal.direction == 0)
    {
       if(signal.quality_flags != 0)
-         RegisterBlock(BLOCK_SIGNAL_QUALITY, StringFormat("signal rejected flags=%d", signal.quality_flags));
-      return;
+      {
+         if(ShouldBypassBlock(BLOCK_SIGNAL_QUALITY) && signal.candidate_direction != 0)
+         {
+            signal.direction = signal.candidate_direction;
+            LogBlockReason(StringFormat("fallback bypass signal-quality flags=%d", signal.quality_flags));
+         }
+         else
+         {
+            RegisterBlock(BLOCK_SIGNAL_QUALITY, StringFormat("signal rejected flags=%d", signal.quality_flags));
+            return;
+         }
+      }
+      else
+      {
+         return;
+      }
    }
 
    if(!IsTradingSessionOpen())
    {
-      RegisterBlock(BLOCK_SESSION, "outside configured session");
-      return;
+      if(ShouldBypassBlock(BLOCK_SESSION))
+         LogBlockReason("fallback bypass session filter");
+      else
+      {
+         RegisterBlock(BLOCK_SESSION, "outside configured session");
+         return;
+      }
    }
 
    double spread_points = 0.0;
@@ -1479,8 +1571,13 @@ void OnTick()
    string regime_reason = "";
    if(!RegimeAllowsEntry(atr_points, spread_points, regime_reason))
    {
-      RegisterBlock(BLOCK_REGIME, regime_reason);
-      return;
+      if(ShouldBypassBlock(BLOCK_REGIME))
+         LogBlockReason(StringFormat("fallback bypass regime (%s)", regime_reason));
+      else
+      {
+         RegisterBlock(BLOCK_REGIME, regime_reason);
+         return;
+      }
    }
 
    string risk_reason = "";
@@ -1501,8 +1598,13 @@ void OnTick()
       const int ticks_now = TicksInWindow(InpTickRateWindowSeconds);
       if(ticks_now < g_effective_min_ticks_window)
       {
-         RegisterBlock(BLOCK_TICKRATE, StringFormat("tick-rate %d below %d", ticks_now, g_effective_min_ticks_window));
-         return;
+         if(ShouldBypassBlock(BLOCK_TICKRATE))
+            LogBlockReason(StringFormat("fallback bypass tick-rate %d below %d", ticks_now, g_effective_min_ticks_window));
+         else
+         {
+            RegisterBlock(BLOCK_TICKRATE, StringFormat("tick-rate %d below %d", ticks_now, g_effective_min_ticks_window));
+            return;
+         }
       }
    }
 
