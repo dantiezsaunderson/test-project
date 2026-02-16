@@ -11,7 +11,7 @@ enum BiasDirection
    BIAS_BEAR = -1
   };
 
-input string          InpSymbol                 = "XAUUSD";
+input string          InpSymbol                 = "";
 input long            InpMagicNumber            = 4620;
 input ENUM_TIMEFRAMES InpHTF                    = PERIOD_H4;
 input ENUM_TIMEFRAMES InpLTF                    = PERIOD_M15;
@@ -25,14 +25,14 @@ input double          InpRewardRisk             = 2.00;
 input int             InpBreakBufferPoints      = 20;
 input int             InpSweepBufferPoints      = 15;
 input int             InpStopBufferPoints       = 25;
-input int             InpMaxSpreadPoints        = 80;
+input int             InpMaxSpreadPoints        = 0;
 input int             InpMaxSlippagePoints      = 25;
 input bool            InpRequireSweepInsideOB   = true;
-input bool            InpUseSessionFilter       = true;
+input bool            InpUseSessionFilter       = false;
 input int             InpSessionStartHour       = 6;
 input int             InpSessionEndHour         = 22;
-input int             InpMaxTradesPerDay        = 3;
-input double          InpMaxDailyLossPercent    = 3.0;
+input int             InpMaxTradesPerDay        = 0;
+input double          InpMaxDailyLossPercent    = 0.0;
 input bool            InpAllowSinglePositionOnly= true;
 input double          InpBreakEvenAtR           = 1.0;
 input int             InpBreakEvenLockPoints    = 10;
@@ -66,15 +66,16 @@ struct EntrySignal
 CTrade   g_trade;
 datetime g_lastProcessedLTFBar = 0;
 datetime g_lastExecutedSignal  = 0;
+string   g_tradeSymbol         = "";
 
 double SymbolPointValue()
   {
-   return SymbolInfoDouble(InpSymbol,SYMBOL_POINT);
+   return SymbolInfoDouble(g_tradeSymbol,SYMBOL_POINT);
   }
 
 int SymbolDigitsValue()
   {
-   return (int)SymbolInfoInteger(InpSymbol,SYMBOL_DIGITS);
+   return (int)SymbolInfoInteger(g_tradeSymbol,SYMBOL_DIGITS);
   }
 
 double NormalizePrice(const double price)
@@ -132,7 +133,7 @@ void CollectSwings(const MqlRates &rates[],const int startIndex,const int endInd
 bool LoadRates(const ENUM_TIMEFRAMES timeframe,const int bars,MqlRates &rates[])
   {
    ArraySetAsSeries(rates,false);
-   const int copied=CopyRates(InpSymbol,timeframe,0,bars,rates);
+   const int copied=CopyRates(g_tradeSymbol,timeframe,0,bars,rates);
    if(copied<=0)
       return false;
    return (copied>=30);
@@ -436,9 +437,9 @@ bool BuildLTFBreakerSignal(const HTFContext &context,EntrySignal &signal)
 
 double NormalizeVolume(const double volumeRaw)
   {
-   const double minVolume=SymbolInfoDouble(InpSymbol,SYMBOL_VOLUME_MIN);
-   const double maxVolume=SymbolInfoDouble(InpSymbol,SYMBOL_VOLUME_MAX);
-   double volumeStep=SymbolInfoDouble(InpSymbol,SYMBOL_VOLUME_STEP);
+   const double minVolume=SymbolInfoDouble(g_tradeSymbol,SYMBOL_VOLUME_MIN);
+   const double maxVolume=SymbolInfoDouble(g_tradeSymbol,SYMBOL_VOLUME_MAX);
+   double volumeStep=SymbolInfoDouble(g_tradeSymbol,SYMBOL_VOLUME_STEP);
    if(volumeStep<=0.0)
       volumeStep=minVolume;
 
@@ -460,8 +461,8 @@ double CalculateRiskVolume(const double entryPrice,const double stopPrice)
    if(distance<=0.0)
       return 0.0;
 
-   const double tickSize=SymbolInfoDouble(InpSymbol,SYMBOL_TRADE_TICK_SIZE);
-   const double tickValue=SymbolInfoDouble(InpSymbol,SYMBOL_TRADE_TICK_VALUE);
+   const double tickSize=SymbolInfoDouble(g_tradeSymbol,SYMBOL_TRADE_TICK_SIZE);
+   const double tickValue=SymbolInfoDouble(g_tradeSymbol,SYMBOL_TRADE_TICK_VALUE);
    if(tickSize<=0.0 || tickValue<=0.0)
       return 0.0;
 
@@ -495,7 +496,7 @@ bool HasManagedPosition()
       const ulong ticket=PositionGetTicket(i);
       if(ticket==0)
          continue;
-      if(PositionGetString(POSITION_SYMBOL)!=InpSymbol)
+      if(PositionGetString(POSITION_SYMBOL)!=g_tradeSymbol)
          continue;
       if((long)PositionGetInteger(POSITION_MAGIC)!=InpMagicNumber)
          continue;
@@ -529,7 +530,7 @@ void GetTodayStats(int &closedTrades,double &closedPnL)
       const ulong dealTicket=HistoryDealGetTicket(i);
       if(dealTicket==0)
          continue;
-      if(HistoryDealGetString(dealTicket,DEAL_SYMBOL)!=InpSymbol)
+      if(HistoryDealGetString(dealTicket,DEAL_SYMBOL)!=g_tradeSymbol)
          continue;
       if((long)HistoryDealGetInteger(dealTicket,DEAL_MAGIC)!=InpMagicNumber)
          continue;
@@ -608,7 +609,7 @@ bool IsSpreadAcceptable(const MqlTick &tick)
 
 bool IsNewLTFBar()
   {
-   const datetime barTime=iTime(InpSymbol,InpLTF,0);
+   const datetime barTime=iTime(g_tradeSymbol,InpLTF,0);
    if(barTime<=0)
       return false;
    if(barTime==g_lastProcessedLTFBar)
@@ -623,14 +624,14 @@ void ManageOpenPositions(const MqlTick &tick)
       return;
 
    const double point=SymbolPointValue();
-   const double stopsLevel=((double)SymbolInfoInteger(InpSymbol,SYMBOL_TRADE_STOPS_LEVEL))*point;
+   const double stopsLevel=((double)SymbolInfoInteger(g_tradeSymbol,SYMBOL_TRADE_STOPS_LEVEL))*point;
 
    for(int i=PositionsTotal()-1;i>=0;--i)
      {
       const ulong ticket=PositionGetTicket(i);
       if(ticket==0)
          continue;
-      if(PositionGetString(POSITION_SYMBOL)!=InpSymbol)
+      if(PositionGetString(POSITION_SYMBOL)!=g_tradeSymbol)
          continue;
       if((long)PositionGetInteger(POSITION_MAGIC)!=InpMagicNumber)
          continue;
@@ -656,7 +657,7 @@ void ManageOpenPositions(const MqlTick &tick)
          if(newSL<=sl)
             continue;
 
-         g_trade.PositionModify(InpSymbol,NormalizePrice(newSL),tp);
+         g_trade.PositionModify(g_tradeSymbol,NormalizePrice(newSL),tp);
         }
       else if(type==POSITION_TYPE_SELL)
         {
@@ -674,7 +675,7 @@ void ManageOpenPositions(const MqlTick &tick)
          if(newSL>=sl)
             continue;
 
-         g_trade.PositionModify(InpSymbol,NormalizePrice(newSL),tp);
+         g_trade.PositionModify(g_tradeSymbol,NormalizePrice(newSL),tp);
         }
      }
   }
@@ -687,7 +688,7 @@ bool ExecuteEntry(const HTFContext &context,const EntrySignal &signal,const MqlT
       return false;
 
    const double point=SymbolPointValue();
-   const double minStops=((double)SymbolInfoInteger(InpSymbol,SYMBOL_TRADE_STOPS_LEVEL))*point+point;
+   const double minStops=((double)SymbolInfoInteger(g_tradeSymbol,SYMBOL_TRADE_STOPS_LEVEL))*point+point;
 
    if(signal.direction==BIAS_BULL)
      {
@@ -719,9 +720,9 @@ bool ExecuteEntry(const HTFContext &context,const EntrySignal &signal,const MqlT
    bool orderSent=false;
    ResetLastError();
    if(signal.direction==BIAS_BULL)
-      orderSent=g_trade.Buy(volume,InpSymbol,0.0,stopPrice,tp,"GBreaker");
+      orderSent=g_trade.Buy(volume,g_tradeSymbol,0.0,stopPrice,tp,"GBreaker");
    else
-      orderSent=g_trade.Sell(volume,InpSymbol,0.0,stopPrice,tp,"GBreaker");
+      orderSent=g_trade.Sell(volume,g_tradeSymbol,0.0,stopPrice,tp,"GBreaker");
 
    if(!orderSent)
      {
@@ -739,17 +740,30 @@ bool ExecuteEntry(const HTFContext &context,const EntrySignal &signal,const MqlT
 
 int OnInit()
   {
-   if(!SymbolSelect(InpSymbol,true))
+   g_tradeSymbol=InpSymbol;
+   StringTrimLeft(g_tradeSymbol);
+   StringTrimRight(g_tradeSymbol);
+   if(StringLen(g_tradeSymbol)==0)
+      g_tradeSymbol=_Symbol;
+
+   if(!SymbolSelect(g_tradeSymbol,true))
      {
-      Print("Failed to select symbol: ",InpSymbol);
-      return INIT_FAILED;
+      if(g_tradeSymbol!=_Symbol && SymbolSelect(_Symbol,true))
+         g_tradeSymbol=_Symbol;
+      else
+        {
+         Print("Failed to select symbol: ",g_tradeSymbol);
+         return INIT_FAILED;
+        }
      }
 
    g_trade.SetExpertMagicNumber(InpMagicNumber);
    g_trade.SetDeviationInPoints(InpMaxSlippagePoints);
 
-   PrintFormat("ICT_Gold_Breaker_EA initialized on %s (HTF=%s LTF=%s)",
-               InpSymbol,
+   PrintFormat("ICT_Gold_Breaker_EA initialized on %s (requested=%s, server=%s, HTF=%s LTF=%s)",
+               g_tradeSymbol,
+               (StringLen(InpSymbol)>0 ? InpSymbol : "chart_symbol"),
+               AccountInfoString(ACCOUNT_SERVER),
                EnumToString(InpHTF),
                EnumToString(InpLTF));
    return INIT_SUCCEEDED;
@@ -758,7 +772,7 @@ int OnInit()
 void OnTick()
   {
    MqlTick tick;
-   if(!SymbolInfoTick(InpSymbol,tick))
+   if(!SymbolInfoTick(g_tradeSymbol,tick))
       return;
 
    ManageOpenPositions(tick);

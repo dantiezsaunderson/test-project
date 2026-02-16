@@ -1,6 +1,6 @@
 # ICT Gold Breaker EA (MT5)
 
-This EA implements the strategy framework from your transcript in a **rule-based, testable form** for MT5, with defaults tuned for **XAUUSD (gold)** first.
+This EA implements the strategy framework from your transcript in a **rule-based, testable form** for MT5, with defaults tuned for **gold first** and ready for broker symbol variations (including Ultima Markets suffix formats).
 
 ## What this EA automates
 
@@ -38,13 +38,15 @@ This EA implements the strategy framework from your transcript in a **rule-based
 
 These are already set in inputs:
 
-- Symbol: `XAUUSD`
+- Symbol: `""` (auto-uses chart symbol; recommended for brokers with suffixes)
 - HTF: `H4`
 - LTF: `M15`
 - Risk: `0.50%` per trade
 - RR: `2.0`
-- Max spread: `80` points (broker dependent)
-- Session: `06:00` to `22:00` (server time)
+- Max spread: `0` points (disabled by default for smoother optimization)
+- Session filter: `OFF` by default
+- Max trades/day: `0` (disabled by default)
+- Max daily loss: `0` (disabled by default)
 
 You should still optimize these per your broker feed and execution quality.
 
@@ -56,8 +58,16 @@ You should still optimize these per your broker feed and execution quality.
 2. Go to `File -> Open Data Folder`.
 3. Copy `ICT_Gold_Breaker_EA.mq5` into `MQL5/Experts/`.
 4. In MetaEditor, compile the file.
-5. Attach EA to an XAUUSD chart.
+5. Attach EA to your broker's gold chart (for example `XAUUSD`, `XAUUSDm`, etc.).
 6. Enable Algo Trading.
+
+### Ultima Markets note
+
+For Ultima Markets backtesting/optimization:
+
+- Keep `InpSymbol` empty (`""`) so the EA automatically uses the exact tester chart symbol.
+- Run optimization on your gold symbol in that server (including any suffix/prefix).
+- After optimization, optionally re-enable spread/session/day-risk guards for live use.
 
 ---
 
