@@ -1,13 +1,24 @@
 #property strict
-#property version   "1.00"
+#property version   "1.10"
 #property description "Ultra-fast XAUUSD scalper template with live-account risk controls."
 
 #include <Trade/Trade.mqh>
+
+enum ExecutionMode
+{
+   EXEC_MODE_STANDARD = 0,
+   EXEC_MODE_ECN_LOW_SPREAD = 1
+};
 
 input group "Core"
 input string InpTradeSymbol                = "XAUUSD";
 input ENUM_TIMEFRAMES InpSignalTF          = PERIOD_M1;
 input long InpMagicNumber                  = 2026021601;
+
+input group "Symbol Discovery"
+input bool InpAutoDetectSymbolSuffix       = true;
+input string InpAutoDetectBaseSymbol       = "XAUUSD";
+input bool InpSearchAllBrokerSymbols       = true;
 
 input group "Execution Filters"
 input double InpMaxSpreadPoints            = 45.0;
@@ -18,6 +29,14 @@ input int InpMinTicksInWindow              = 6;
 input bool InpEnableSessionFilter          = true;
 input int InpSessionStartHour              = 6;
 input int InpSessionEndHour                = 23;
+
+input group "Execution Profile"
+input ExecutionMode InpExecutionMode       = EXEC_MODE_STANDARD;
+input double InpECNMaxSpreadPoints         = 22.0;
+input int InpECNMaxSlippagePoints          = 8;
+input int InpECNCooldownSeconds            = 3;
+input int InpECNMinTicksInWindow           = 8;
+input bool InpECNSendStopsAfterFill        = true;
 
 input group "Signal Model"
 input int InpFastEMAPeriod                 = 8;
@@ -78,6 +97,162 @@ double g_daily_pnl = 0.0;
 int g_consecutive_losses = 0;
 datetime g_last_block_log_time = 0;
 string g_last_block_reason = "";
+double g_effective_max_spread_points = 0.0;
+int g_effective_max_slippage_points = 0;
+int g_effective_cooldown_seconds = 0;
+int g_effective_min_ticks_window = 0;
+bool g_use_ecn_post_fill_stops = false;
+
+string ToUpperText(const string source)
+{
+   string text = source;
+   StringToUpper(text);
+   return text;
+}
+
+int SymbolMatchScore(const string base_symbol_upper, const string candidate_symbol)
+{
+   if(StringLen(base_symbol_upper) == 0 || StringLen(candidate_symbol) == 0)
+      return -1;
+
+   const string candidate_upper = ToUpperText(candidate_symbol);
+   if(candidate_upper == base_symbol_upper)
+      return 1000;
+
+   const int pos = StringFind(candidate_upper, base_symbol_upper);
+   if(pos < 0)
+      return -1;
+
+   int score = 100;
+   if(pos == 0)
+      score += 200;
+   if((pos + StringLen(base_symbol_upper)) == StringLen(candidate_upper))
+      score += 120;
+
+   const int extra = StringLen(candidate_upper) - StringLen(base_symbol_upper);
+   if(extra > 0)
+      score -= (extra > 40 ? 40 : extra);
+
+   if(pos == 0 && extra > 0)
+   {
+      const string suffix = StringSubstr(candidate_upper, StringLen(base_symbol_upper));
+      if(StringLen(suffix) <= 4)
+         score += 20;
+      if(StringFind(suffix, ".") == 0 || StringFind(suffix, "_") == 0)
+         score += 8;
+   }
+
+   return score;
+}
+
+string ResolveTradeSymbol(const string requested_symbol)
+{
+   string requested = requested_symbol;
+   if(StringLen(requested) == 0)
+      requested = _Symbol;
+
+   if(SymbolSelect(requested, true))
+      return requested;
+
+   if(!InpAutoDetectSymbolSuffix)
+      return requested;
+
+   string base_key = InpAutoDetectBaseSymbol;
+   if(StringLen(base_key) == 0)
+      base_key = requested;
+   base_key = ToUpperText(base_key);
+
+   string best_symbol = "";
+   int best_score = -1;
+
+   const int chart_score = SymbolMatchScore(base_key, _Symbol);
+   if(chart_score >= 0)
+   {
+      best_score = chart_score + 5;
+      best_symbol = _Symbol;
+   }
+
+   const int total = SymbolsTotal(InpSearchAllBrokerSymbols);
+   for(int i = 0; i < total; i++)
+   {
+      const string candidate = SymbolName(i, InpSearchAllBrokerSymbols);
+      const int score = SymbolMatchScore(base_key, candidate);
+      if(score > best_score)
+      {
+         best_score = score;
+         best_symbol = candidate;
+      }
+   }
+
+   if(best_score >= 0 && StringLen(best_symbol) > 0 && SymbolSelect(best_symbol, true))
+   {
+      if(best_symbol != requested)
+      {
+         PrintFormat("Auto-detected symbol '%s' from requested '%s' using base '%s'.",
+                     best_symbol,
+                     requested,
+                     base_key);
+      }
+      return best_symbol;
+   }
+
+   return requested;
+}
+
+void ConfigureExecutionProfile()
+{
+   g_effective_max_spread_points = InpMaxSpreadPoints;
+   g_effective_max_slippage_points = InpMaxSlippagePoints;
+   g_effective_cooldown_seconds = InpCooldownSeconds;
+   g_effective_min_ticks_window = InpMinTicksInWindow;
+   g_use_ecn_post_fill_stops = false;
+
+   if(InpExecutionMode == EXEC_MODE_ECN_LOW_SPREAD)
+   {
+      if(InpECNMaxSpreadPoints > 0.0)
+         g_effective_max_spread_points = InpECNMaxSpreadPoints;
+      if(InpECNMaxSlippagePoints > 0)
+         g_effective_max_slippage_points = InpECNMaxSlippagePoints;
+      if(InpECNCooldownSeconds >= 0)
+         g_effective_cooldown_seconds = InpECNCooldownSeconds;
+      if(InpECNMinTicksInWindow > 0 && InpECNMinTicksInWindow > g_effective_min_ticks_window)
+         g_effective_min_ticks_window = InpECNMinTicksInWindow;
+      g_use_ecn_post_fill_stops = InpECNSendStopsAfterFill;
+   }
+
+   if(g_effective_max_spread_points <= 0.0)
+      g_effective_max_spread_points = InpMaxSpreadPoints;
+   if(g_effective_max_slippage_points < 0)
+      g_effective_max_slippage_points = InpMaxSlippagePoints;
+   if(g_effective_cooldown_seconds < 0)
+      g_effective_cooldown_seconds = 0;
+   if(g_effective_min_ticks_window < 0)
+      g_effective_min_ticks_window = 0;
+
+   trade.SetDeviationInPoints(g_effective_max_slippage_points);
+
+   if(InpExecutionMode == EXEC_MODE_ECN_LOW_SPREAD)
+   {
+      const long filling_flags = SymbolInfoInteger(g_symbol, SYMBOL_FILLING_MODE);
+      if((filling_flags & SYMBOL_FILLING_IOC) == SYMBOL_FILLING_IOC)
+         trade.SetTypeFilling(ORDER_FILLING_IOC);
+      else if((filling_flags & SYMBOL_FILLING_FOK) == SYMBOL_FILLING_FOK)
+         trade.SetTypeFilling(ORDER_FILLING_FOK);
+      else
+         trade.SetTypeFillingBySymbol(g_symbol);
+   }
+   else
+   {
+      trade.SetTypeFillingBySymbol(g_symbol);
+   }
+}
+
+string ExecutionModeLabel()
+{
+   if(InpExecutionMode == EXEC_MODE_ECN_LOW_SPREAD)
+      return "ECN_LOW_SPREAD";
+   return "STANDARD";
+}
 
 int VolumeDigitsFromStep(const double step)
 {
@@ -183,7 +358,7 @@ bool SpreadAllowed(const MqlTick &tick, double &spread_points)
    spread_points = (tick.ask - tick.bid) / g_point;
    if(spread_points < 0.0)
       spread_points = 0.0;
-   return (spread_points <= InpMaxSpreadPoints);
+   return (spread_points <= g_effective_max_spread_points);
 }
 
 bool RefreshIndicators(double &ema_fast,
@@ -535,6 +710,28 @@ void ManagePosition(const MqlTick &tick, const int signal_direction, const doubl
    }
 }
 
+bool ApplyStopsAfterFill(const double sl, const double tp)
+{
+   for(int attempt = 0; attempt < 6; attempt++)
+   {
+      if(PositionSelect(g_symbol))
+      {
+         if(trade.PositionModify(g_symbol, sl, tp))
+            return true;
+
+         PrintFormat("Post-fill stop attach failed. retcode=%u (%s)",
+                     trade.ResultRetcode(),
+                     trade.ResultRetcodeDescription());
+         return false;
+      }
+
+      Sleep(20);
+   }
+
+   Print("Post-fill stop attach failed: position not found after order fill.");
+   return false;
+}
+
 bool PlaceEntry(const int direction, double stop_points, double target_points, const MqlTick &tick)
 {
    if(direction == 0)
@@ -567,10 +764,11 @@ bool PlaceEntry(const int direction, double stop_points, double target_points, c
 
    ResetLastError();
    bool sent = false;
+   const bool send_stops_now = !g_use_ecn_post_fill_stops;
    if(direction > 0)
-      sent = trade.Buy(volume, g_symbol, 0.0, sl, tp, "UF_XAUUSD_SCALPER");
+      sent = trade.Buy(volume, g_symbol, 0.0, send_stops_now ? sl : 0.0, send_stops_now ? tp : 0.0, "UF_XAUUSD_SCALPER");
    else
-      sent = trade.Sell(volume, g_symbol, 0.0, sl, tp, "UF_XAUUSD_SCALPER");
+      sent = trade.Sell(volume, g_symbol, 0.0, send_stops_now ? sl : 0.0, send_stops_now ? tp : 0.0, "UF_XAUUSD_SCALPER");
 
    if(!sent)
    {
@@ -581,16 +779,30 @@ bool PlaceEntry(const int direction, double stop_points, double target_points, c
       return false;
    }
 
+   if(g_use_ecn_post_fill_stops)
+   {
+      if(!ApplyStopsAfterFill(sl, tp))
+      {
+         Print("Safety close triggered: unable to attach protective stops in ECN mode.");
+         if(trade.PositionClose(g_symbol))
+            g_last_trade_action_time = TimeCurrent();
+         return false;
+      }
+   }
+
    g_last_trade_action_time = TimeCurrent();
-   PrintFormat("Entry placed: dir=%d lots=%.2f sl=%.2f tp=%.2f", direction, volume, sl, tp);
+   PrintFormat("Entry placed: dir=%d lots=%.2f sl=%.2f tp=%.2f mode=%s",
+               direction,
+               volume,
+               sl,
+               tp,
+               ExecutionModeLabel());
    return true;
 }
 
 int OnInit()
 {
-   g_symbol = InpTradeSymbol;
-   if(StringLen(g_symbol) == 0)
-      g_symbol = _Symbol;
+   g_symbol = ResolveTradeSymbol(InpTradeSymbol);
 
    if(!SymbolSelect(g_symbol, true))
    {
@@ -620,8 +832,7 @@ int OnInit()
    }
 
    trade.SetExpertMagicNumber(InpMagicNumber);
-   trade.SetDeviationInPoints(InpMaxSlippagePoints);
-   trade.SetTypeFillingBySymbol(g_symbol);
+   ConfigureExecutionProfile();
 
    ArrayInitialize(g_tick_times, 0);
    g_tick_count = 0;
@@ -629,7 +840,14 @@ int OnInit()
    UpdateRiskStats();
    EventSetTimer(1);
 
-   PrintFormat("UF XAUUSD scalper initialized on %s (%s).", g_symbol, EnumToString(InpSignalTF));
+   PrintFormat("UF XAUUSD scalper initialized on %s (%s), mode=%s spread<=%.1f slip<=%d cooldown=%ds minTicks=%d.",
+               g_symbol,
+               EnumToString(InpSignalTF),
+               ExecutionModeLabel(),
+               g_effective_max_spread_points,
+               g_effective_max_slippage_points,
+               g_effective_cooldown_seconds,
+               g_effective_min_ticks_window);
    if(g_symbol != _Symbol)
       Print("Attach EA to chart symbol matching InpTradeSymbol for best tick frequency.");
 
@@ -699,7 +917,7 @@ void OnTick()
    double spread_points = 0.0;
    if(!SpreadAllowed(tick, spread_points))
    {
-      LogBlockReason(StringFormat("spread %.1f > %.1f", spread_points, InpMaxSpreadPoints));
+      LogBlockReason(StringFormat("spread %.1f > %.1f", spread_points, g_effective_max_spread_points));
       return;
    }
 
@@ -710,18 +928,18 @@ void OnTick()
       return;
    }
 
-   if(InpCooldownSeconds > 0 && (TimeCurrent() - g_last_trade_action_time) < InpCooldownSeconds)
+   if(g_effective_cooldown_seconds > 0 && (TimeCurrent() - g_last_trade_action_time) < g_effective_cooldown_seconds)
    {
       LogBlockReason("cooldown active");
       return;
    }
 
-   if(InpTickRateWindowSeconds > 0 && InpMinTicksInWindow > 0)
+   if(InpTickRateWindowSeconds > 0 && g_effective_min_ticks_window > 0)
    {
       const int ticks_now = TicksInWindow(InpTickRateWindowSeconds);
-      if(ticks_now < InpMinTicksInWindow)
+      if(ticks_now < g_effective_min_ticks_window)
       {
-         LogBlockReason(StringFormat("tick-rate %d below %d", ticks_now, InpMinTicksInWindow));
+         LogBlockReason(StringFormat("tick-rate %d below %d", ticks_now, g_effective_min_ticks_window));
          return;
       }
    }

@@ -6,9 +6,11 @@ This folder contains a production-oriented **MT5 Expert Advisor template** for X
 
 It is designed for low-latency scalp execution while keeping strict live-account safeguards:
 
+- broker-symbol auto-detection (`XAUUSD`, `XAUUSDm`, `XAUUSD.pro`, etc.)
 - spread and slippage filters
 - tick-rate/liquidity gating
 - session filter
+- standard and ECN low-spread execution profiles
 - ATR-based dynamic SL/TP
 - breakeven + trailing management
 - daily loss cap and max consecutive losses
@@ -26,6 +28,22 @@ This EA is built to be **as fast and robust as possible in retail conditions**, 
 3. Restart MT5 or refresh the Navigator.
 4. Compile in MetaEditor.
 5. Attach to an **XAUUSD** chart (M1 recommended).
+
+## Symbol auto-detection
+
+The EA can auto-resolve broker naming variants when exact `InpTradeSymbol` is unavailable.
+
+Key inputs:
+
+- `InpAutoDetectSymbolSuffix = true`
+- `InpAutoDetectBaseSymbol = "XAUUSD"`
+- `InpSearchAllBrokerSymbols = true`
+
+Example behavior:
+
+- requested `XAUUSD` not found
+- broker offers `XAUUSDm`
+- EA auto-detects `XAUUSDm` and logs it in `Experts`
 
 ## Default strategy logic
 
@@ -45,6 +63,22 @@ Position handling:
 - ATR trailing stop
 - max holding time safety close
 
+## Execution profiles
+
+`InpExecutionMode` supports:
+
+1. `EXEC_MODE_STANDARD`
+   - uses the standard spread/slippage/cooldown inputs
+   - sends market order with SL/TP in one request
+2. `EXEC_MODE_ECN_LOW_SPREAD`
+   - uses ECN overrides:
+     - `InpECNMaxSpreadPoints`
+     - `InpECNMaxSlippagePoints`
+     - `InpECNCooldownSeconds`
+     - `InpECNMinTicksInWindow`
+   - can send orders first, then attach stops (`InpECNSendStopsAfterFill = true`) for ECN compatibility
+   - attempts IOC fill policy when broker supports it
+
 ## Suggested baseline for XAUUSD live testing
 
 Start conservative and tune based on broker conditions:
@@ -57,6 +91,14 @@ Start conservative and tune based on broker conditions:
 - `InpRiskPercent = 0.10..0.40`
 - `InpDailyLossLimitPercent = 1.0..3.0`
 - `InpMaxHoldingSeconds = 90..240`
+
+For low-spread ECN accounts, try:
+
+- `InpExecutionMode = EXEC_MODE_ECN_LOW_SPREAD`
+- `InpECNMaxSpreadPoints = 12..28`
+- `InpECNMaxSlippagePoints = 4..12`
+- `InpECNCooldownSeconds = 1..5`
+- `InpECNMinTicksInWindow = 8..15`
 
 ## Optimization workflow
 

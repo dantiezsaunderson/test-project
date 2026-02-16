@@ -11,7 +11,9 @@ This repository now includes an MT5 Expert Advisor focused on fast XAUUSD scalp 
 ## EA Highlights
 
 - EMA + breakout + RSI + volume-impulse signal logic
+- symbol auto-detection for broker variants (`XAUUSDm`, `XAUUSD.pro`, etc.)
 - spread/slippage/session/tick-rate filters
+- STANDARD and ECN low-spread execution modes
 - ATR-based SL/TP sizing
 - breakeven and trailing stop management
 - max holding time exit
