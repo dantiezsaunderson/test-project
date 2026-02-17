@@ -7,7 +7,7 @@
 //|  Regime Detection: Trending / Ranging / Volatile / Quiet          |
 //+------------------------------------------------------------------+
 #property copyright "Ultimate XAUUSD EA"
-#property version   "2.00"
+#property version   "2.10"
 #property description "Multi-Strategy Adaptive Gold Trading Expert Advisor v2"
 #property strict
 
@@ -53,8 +53,8 @@ enum ENUM_RISK_MODE
 // ===== General Settings =====
 input group "=== General Settings ==="
 input string         InpSymbol            = "XAUUSD";       // Symbol (leave blank for current)
-input ENUM_TIMEFRAMES InpTimeframe        = PERIOD_H1;      // Primary Timeframe
-input ENUM_TIMEFRAMES InpHTFTimeframe     = PERIOD_H4;      // Higher Timeframe (Bias)
+input ENUM_TIMEFRAMES InpTimeframe        = PERIOD_M15;     // Primary Timeframe
+input ENUM_TIMEFRAMES InpHTFTimeframe     = PERIOD_H1;      // Higher Timeframe (Bias)
 input int            InpMagicNumber       = 777777;         // Magic Number
 input string         InpComment           = "XAUUSD_UltEA"; // Order Comment
 input bool           InpTradeOnNewBarOnly = true;            // Trade on New Bar Only
@@ -80,9 +80,9 @@ input bool           InpUseTrailingStop   = true;            // Use Trailing Sto
 input double         InpTrailingATRMult   = 1.5;             // Trailing Stop ATR Multiplier
 input bool           InpUseBreakeven      = true;            // Move to Breakeven
 input double         InpBreakevenATRMult  = 1.0;             // Breakeven Trigger ATR Multiplier
-input double         InpMaxSpreadPoints   = 60;              // Max spread in points for new entries
-input double         InpMinRewardRisk     = 1.2;             // Minimum reward:risk for entries
-input int            InpMinMinutesBetweenTrades = 30;        // Cooldown between new trades
+input double         InpMaxSpreadPoints   = 0;               // Max spread in points for new entries (0=disabled)
+input double         InpMinRewardRisk     = 1.0;             // Minimum reward:risk for entries
+input int            InpMinMinutesBetweenTrades = 0;         // Cooldown between new trades
 
 // ===== Trend Following Parameters =====
 input group "=== Trend Following ==="
@@ -142,7 +142,7 @@ input double         InpVolatilityLow     = 0.5;             // Low Volatility A
 
 // ===== Session Filters =====
 input group "=== Session Filters ==="
-input bool           InpUseSessions       = true;            // Filter by Trading Sessions
+input bool           InpUseSessions       = false;           // Filter by Trading Sessions
 input bool           InpTradeLondon       = true;            // Trade London Session
 input bool           InpTradeNewYork      = true;            // Trade New York Session
 input bool           InpTradeAsian        = false;           // Trade Asian Session
@@ -438,7 +438,35 @@ void OnTick()
    // Execute strategies
    if(InpAdaptiveMode)
    {
+      int posBefore = CountPositions();
       ExecuteStrategy(g_activeStrategy, htfBias);
+
+      // If the preferred strategy has no setup, try other enabled strategies.
+      bool opened = (CountPositions() > posBefore);
+      if(!opened && InpUseTrendFollow && g_activeStrategy != STRAT_TREND_FOLLOW)
+      {
+         ExecuteStrategy(STRAT_TREND_FOLLOW, htfBias);
+         opened = (CountPositions() > posBefore);
+      }
+      if(!opened && InpUseMeanReversion && g_activeStrategy != STRAT_MEAN_REVERSION)
+      {
+         ExecuteStrategy(STRAT_MEAN_REVERSION, htfBias);
+         opened = (CountPositions() > posBefore);
+      }
+      if(!opened && InpUseBreakout && g_activeStrategy != STRAT_BREAKOUT)
+      {
+         ExecuteStrategy(STRAT_BREAKOUT, htfBias);
+         opened = (CountPositions() > posBefore);
+      }
+      if(!opened && InpUseMomentumScalp && g_activeStrategy != STRAT_MOMENTUM_SCALP)
+      {
+         ExecuteStrategy(STRAT_MOMENTUM_SCALP, htfBias);
+         opened = (CountPositions() > posBefore);
+      }
+      if(!opened && InpUseSMC && g_activeStrategy != STRAT_SMC)
+      {
+         ExecuteStrategy(STRAT_SMC, htfBias);
+      }
    }
    else
    {
