@@ -7,8 +7,8 @@
 //|  Regime Detection: Trending / Ranging / Volatile / Quiet          |
 //+------------------------------------------------------------------+
 #property copyright "Ultimate XAUUSD EA"
-#property version   "2.10"
-#property description "Multi-Strategy Adaptive Gold Trading Expert Advisor v2"
+#property version   "2.20"
+#property description "Multi-Strategy Adaptive Gold Trading Expert Advisor v2.2 (Aggressive Preset)"
 #property strict
 
 #include <Trade\Trade.mqh>
@@ -57,7 +57,7 @@ input ENUM_TIMEFRAMES InpTimeframe        = PERIOD_M15;     // Primary Timeframe
 input ENUM_TIMEFRAMES InpHTFTimeframe     = PERIOD_H1;      // Higher Timeframe (Bias)
 input int            InpMagicNumber       = 777777;         // Magic Number
 input string         InpComment           = "XAUUSD_UltEA"; // Order Comment
-input bool           InpTradeOnNewBarOnly = true;            // Trade on New Bar Only
+input bool           InpTradeOnNewBarOnly = false;           // Trade on New Bar Only
 
 // ===== Strategy Activation =====
 input group "=== Strategy Activation ==="
@@ -72,9 +72,9 @@ input bool           InpAdaptiveMode      = true;            // Adaptive Mode (a
 input group "=== Risk Management ==="
 input ENUM_RISK_MODE InpRiskMode          = RISK_PERCENT;    // Risk Mode
 input double         InpFixedLot          = 0.01;            // Fixed Lot Size
-input double         InpRiskPercent       = 1.0;             // Risk Per Trade (%)
+input double         InpRiskPercent       = 1.25;            // Risk Per Trade (%)
 input double         InpMaxDrawdownPct    = 10.0;            // Max Drawdown % (pause trading)
-input int            InpMaxOpenTrades     = 3;               // Max Simultaneous Trades
+input int            InpMaxOpenTrades     = 4;               // Max Simultaneous Trades
 input double         InpMaxDailyLossPct   = 3.0;             // Max Daily Loss % (stop trading)
 input bool           InpUseTrailingStop   = true;            // Use Trailing Stop
 input double         InpTrailingATRMult   = 1.5;             // Trailing Stop ATR Multiplier
@@ -83,7 +83,7 @@ input double         InpBreakevenATRMult  = 1.0;             // Breakeven Trigge
 input double         InpMaxSpreadPoints   = 0;               // Max spread in points for new entries (0=disabled)
 input double         InpMinRewardRisk     = 1.0;             // Minimum reward:risk for entries
 input int            InpMinMinutesBetweenTrades = 0;         // Cooldown between new trades
-input double         InpHardMaxRiskPct    = 1.5;             // Absolute max risk per trade (% of equity)
+input double         InpHardMaxRiskPct    = 2.0;             // Absolute max risk per trade (% of equity)
 input bool           InpCloseOnRiskBreach = true;            // Close positions when risk limits are breached
 
 // ===== Trend Following Parameters =====
@@ -108,9 +108,9 @@ input double         InpMR_TP_ATRMult     = 2.0;             // TP ATR Multiplie
 // ===== Breakout Parameters =====
 input group "=== Breakout ==="
 input int            InpBreakoutPeriod    = 20;              // Breakout Lookback Period
-input double         InpBreakoutATRFilter = 1.2;             // ATR Breakout Filter Multiplier
+input double         InpBreakoutATRFilter = 1.05;            // ATR Breakout Filter Multiplier
 input int            InpVolumePeriod      = 20;              // Volume Average Period
-input double         InpVolumeMultiplier  = 1.5;             // Volume Spike Multiplier
+input double         InpVolumeMultiplier  = 1.2;             // Volume Spike Multiplier
 input double         InpBO_SL_ATRMult     = 1.5;             // SL ATR Multiplier
 input double         InpBO_TP_ATRMult     = 3.0;             // TP ATR Multiplier
 
@@ -137,7 +137,7 @@ input double         InpSMC_TP_ATRMult    = 4.0;             // TP ATR Multiplie
 input group "=== Regime Detection ==="
 input int            InpADXPeriod         = 14;              // ADX Period
 input int            InpATRPeriod         = 14;              // ATR Period
-input double         InpADXTrendThreshold = 25.0;            // ADX Trend Threshold
+input double         InpADXTrendThreshold = 20.0;            // ADX Trend Threshold
 input double         InpADXStrongThreshold= 40.0;            // ADX Strong Trend Threshold
 input double         InpVolatilityHigh    = 1.5;             // High Volatility ATR Multiplier
 input double         InpVolatilityLow     = 0.5;             // Low Volatility ATR Multiplier
