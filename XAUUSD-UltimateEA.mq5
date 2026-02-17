@@ -843,7 +843,7 @@ void Strategy_Breakout(int htfBias)
    long currentVol = iVolume(g_symbol, InpTimeframe, 1);
    double avgVol = 0;
    for(int i = 2; i <= InpVolumePeriod + 1; i++)
-      avgVol += iVolume(g_symbol, InpTimeframe, i);
+      avgVol += (double)iVolume(g_symbol, InpTimeframe, i);
    if(InpVolumePeriod > 0) avgVol /= InpVolumePeriod;
    if(avgVol <= 0) return;
    if(currentVol > avgVol * InpVolumeMultiplier)
@@ -1689,8 +1689,8 @@ void UpdateDashboard()
    int x = 15, y = 35, lineH = 18;
    int line = 0;
    
-   string regimeStr;
-   color regimeClr;
+   string regimeStr = "UNKNOWN";
+   color regimeClr = clrSilver;
    switch(g_currentRegime)
    {
       case REGIME_STRONG_TREND_UP:   regimeStr = "STRONG TREND UP";   regimeClr = clrLime; break;
@@ -1700,9 +1700,10 @@ void UpdateDashboard()
       case REGIME_STRONG_TREND_DOWN: regimeStr = "STRONG TREND DOWN"; regimeClr = clrRed; break;
       case REGIME_VOLATILE:          regimeStr = "HIGH VOLATILITY";   regimeClr = clrMagenta; break;
       case REGIME_QUIET:             regimeStr = "QUIET MARKET";      regimeClr = clrGray; break;
+      default:                       regimeStr = "UNKNOWN";           regimeClr = clrSilver; break;
    }
    
-   string stratStr;
+   string stratStr = "N/A";
    switch(g_activeStrategy)
    {
       case STRAT_TREND_FOLLOW:   stratStr = "Trend Following"; break;
@@ -1710,6 +1711,7 @@ void UpdateDashboard()
       case STRAT_BREAKOUT:       stratStr = "Breakout"; break;
       case STRAT_MOMENTUM_SCALP: stratStr = "Momentum Scalp"; break;
       case STRAT_SMC:            stratStr = "Smart Money (SMC)"; break;
+      default:                   stratStr = "N/A"; break;
    }
    
    double winRate = (g_totalTrades > 0) ? (double)g_winTrades / g_totalTrades * 100.0 : 0;
