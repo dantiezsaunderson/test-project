@@ -83,6 +83,8 @@ input double         InpBreakevenATRMult  = 1.0;             // Breakeven Trigge
 input double         InpMaxSpreadPoints   = 0;               // Max spread in points for new entries (0=disabled)
 input double         InpMinRewardRisk     = 1.0;             // Minimum reward:risk for entries
 input int            InpMinMinutesBetweenTrades = 0;         // Cooldown between new trades
+input double         InpHardMaxRiskPct    = 1.5;             // Absolute max risk per trade (% of equity)
+input bool           InpCloseOnRiskBreach = true;            // Close positions when risk limits are breached
 
 // ===== Trend Following Parameters =====
 input group "=== Trend Following ==="
@@ -205,6 +207,8 @@ double   g_dayStartBalance;
 datetime g_lastTradeTime;
 datetime g_lastProcessedDealTime;
 ulong    g_lastProcessedDealTicket;
+bool     g_drawdownLock;
+bool     g_dailyLossLock;
 
 // SMC structures
 struct OrderBlock
@@ -324,6 +328,8 @@ int OnInit()
    g_lastProcessedDealTicket = 0;
    g_currentRegime = REGIME_RANGING;
    g_activeStrategy = STRAT_TREND_FOLLOW;
+   g_drawdownLock = false;
+   g_dailyLossLock = false;
    
    ArrayInitialize(g_strategyScores, 50.0); // Start with neutral score
    ArrayResize(g_orderBlocks, 0);
@@ -383,22 +389,34 @@ void OnTick()
    UpdateDailyTracking();
    ManagePositions();
 
-   // New entry logic can still be restricted to new bars.
-   if(InpTradeOnNewBarOnly && !IsNewBar())
+   // Hard risk locks: once hit, stop trading.
+   if(g_drawdownLock || g_dailyLossLock)
    {
       if(InpShowDashboard) UpdateDashboard();
       return;
    }
-   
-   // Check drawdown limits
+
+   // Enforce account protection on every tick, not only on new bars.
    if(IsDrawdownExceeded())
    {
+      if(InpCloseOnRiskBreach)
+         CloseAllPositions("Max drawdown exceeded");
+      g_drawdownLock = true;
       if(InpShowDashboard) UpdateDashboard();
       return;
    }
-   
-   // Check daily loss limit
+
    if(IsDailyLossExceeded())
+   {
+      if(InpCloseOnRiskBreach)
+         CloseAllPositions("Daily loss limit exceeded");
+      g_dailyLossLock = true;
+      if(InpShowDashboard) UpdateDashboard();
+      return;
+   }
+
+   // New entry logic can still be restricted to new bars.
+   if(InpTradeOnNewBarOnly && !IsNewBar())
    {
       if(InpShowDashboard) UpdateDashboard();
       return;
@@ -1435,6 +1453,34 @@ bool OpenTrade(ENUM_ORDER_TYPE type, double lots, double sl, double tp, string c
    if(InpRiskMode != RISK_FIXED_LOT)
       lots = CalculateLotSize(slDistance);
    lots = NormalizeLot(lots);
+
+   // Absolute risk cap per trade using broker-native P/L calculation.
+   if(InpHardMaxRiskPct > 0)
+   {
+      double maxLossMoney = m_account.Equity() * InpHardMaxRiskPct / 100.0;
+      double expectedPL = 0;
+      if(OrderCalcProfit(type, g_symbol, lots, price, sl, expectedPL))
+      {
+         double expectedLossMoney = MathAbs(expectedPL);
+         if(expectedLossMoney > maxLossMoney)
+         {
+            double scaledLots = lots * (maxLossMoney / expectedLossMoney);
+            lots = NormalizeLot(scaledLots);
+
+            // If minimum lot still exceeds hard cap, reject the trade.
+            if(OrderCalcProfit(type, g_symbol, lots, price, sl, expectedPL))
+            {
+               if(MathAbs(expectedPL) > maxLossMoney * 1.02)
+               {
+                  Print("TRADE BLOCKED (HARD RISK CAP): ", comment,
+                        " | ExpectedLoss=", DoubleToString(MathAbs(expectedPL), 2),
+                        " | Cap=", DoubleToString(maxLossMoney, 2));
+                  return false;
+               }
+            }
+         }
+      }
+   }
    
    bool result = m_trade.PositionOpen(g_symbol, type, lots, price, sl, tp, comment);
    
@@ -1502,6 +1548,28 @@ bool IsSpreadAcceptable()
    return spreadPoints <= InpMaxSpreadPoints;
 }
 
+void CloseAllPositions(string reason)
+{
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
+   {
+      if(!m_position.SelectByIndex(i)) continue;
+      if(m_position.Magic() != InpMagicNumber) continue;
+      if(m_position.Symbol() != g_symbol) continue;
+
+      ulong ticket = m_position.Ticket();
+      if(!m_trade.PositionClose(ticket))
+      {
+         Print("RISK CLOSE FAILED: #", ticket, " | ", reason,
+               " | Retcode: ", m_trade.ResultRetcode(),
+               " | ", m_trade.ResultRetcodeDescription());
+      }
+      else
+      {
+         Print("RISK CLOSE OK: #", ticket, " | ", reason);
+      }
+   }
+}
+
 bool IsValidSession()
 {
    MqlDateTime dt;
@@ -1561,6 +1629,7 @@ void UpdateDailyTracking()
       g_dailyPL = 0;
       g_lastDay = today;
       g_dayStartBalance = m_account.Balance();
+      g_dailyLossLock = false;
    }
 }
 
