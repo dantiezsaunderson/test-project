@@ -3,7 +3,7 @@
 //|  Intraday hybrid: mean-reversion + breakout for XAUUSD (MT5)     |
 //+------------------------------------------------------------------+
 #property strict
-#property version   "2.00"
+#property version   "2.01"
 #property description "XAU intraday hybrid scalper: ADX/Hurst regime, VWAP/OFI signals, ATR risk."
 
 #include <Trade/Trade.mqh>
@@ -1197,5 +1197,29 @@ void OnTick()
       g_lastSignalBar = bar_time;
       EvaluateSignalsOnNewBar();
    }
+}
+
+//+------------------------------------------------------------------+
+//| Custom optimization criterion for MT5 tester                      |
+//+------------------------------------------------------------------+
+double OnTester()
+{
+   double profit = TesterStatistics(STAT_PROFIT);
+   double dd_abs = TesterStatistics(STAT_BALANCE_DD);
+   double pf = TesterStatistics(STAT_PROFIT_FACTOR);
+   double trades = TesterStatistics(STAT_TRADES);
+
+   // Reject unstable parameter sets early.
+   if(trades < 80.0)
+      return -1.0e9 + trades;
+   if(profit <= 0.0 || pf <= 0.0)
+      return -1.0e8 + profit;
+
+   if(dd_abs <= 0.0)
+      dd_abs = 1.0;
+
+   // Reward profit and quality while penalizing deep drawdown.
+   double trade_weight = MathMin(1.5, trades / 200.0);
+   return (profit / dd_abs) * pf * trade_weight;
 }
 //+------------------------------------------------------------------+

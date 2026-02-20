@@ -1,6 +1,6 @@
 # XAU_XIMH_ScalperEA (MT5)
 
-Current release: **v2.00**
+Current release: **v2.01**
 
 Hybrid intraday EA for gold scalping on MT5:
 
@@ -70,6 +70,13 @@ Hybrid intraday EA for gold scalping on MT5:
    - Aggressive: highest activity (still risk-capped)
    - Balanced: moderate turnover/risk
    - Conservative: lowest activity/risk
+
+## Optimization Note (Fixed in v2.01)
+
+- The EA now includes `OnTester()` so **Custom max criterion** optimization works.
+- If you choose Custom max criterion, MT5 will maximize a risk-adjusted score:
+  - rewards profit, profit factor, and sufficient trade count
+  - penalizes high absolute drawdown
 
 ## Backtest Checklist
 
