@@ -3,7 +3,7 @@
 //|  Intraday hybrid: mean-reversion + breakout for XAUUSD (MT5)     |
 //+------------------------------------------------------------------+
 #property strict
-#property version   "1.10"
+#property version   "1.20"
 #property description "XAU intraday hybrid scalper: ADX/Hurst regime, VWAP/OFI signals, ATR risk."
 
 #include <Trade/Trade.mqh>
@@ -25,6 +25,7 @@ input int             InpSession2StartHour         = 12;
 input int             InpSession2StartMinute       = 30;
 input int             InpSession2EndHour           = 16;
 input int             InpSession2EndMinute         = 30;
+input int             InpServerToUTCOffsetHours    = 0;        // UTC = server - offset
 
 // -------------------- Inputs: feature windows ----------------------
 input group "Feature Windows"
@@ -63,19 +64,21 @@ input double          InpBreakoutPartialCloseFrac  = 0.60;
 
 // -------------------- Inputs: sizing/risk --------------------------
 input group "Sizing & Risk"
-input double          InpBaseRiskPct               = 0.35;     // % equity per trade (base)
-input double          InpMaxLossPerTradePct        = 0.45;     // hard cap
-input double          InpMaxDailyLossPct           = 1.80;
-input double          InpMaxWeeklyLossPct          = 3.50;
-input double          InpDrawdownSoftPct           = 9.0;
-input double          InpDrawdownHardPct           = 12.0;
+input double          InpBaseRiskPct               = 0.08;     // % equity per trade (base)
+input double          InpMaxLossPerTradePct        = 0.12;     // hard cap
+input double          InpMaxDailyLossPct           = 1.00;
+input double          InpMaxWeeklyLossPct          = 2.00;
+input double          InpDrawdownSoftPct           = 6.5;
+input double          InpDrawdownHardPct           = 9.0;
 input double          InpTargetAtrPct              = 0.10;     // target ATR as % of price
+input double          InpMaxLots                   = 1.00;     // absolute cap per trade
+input int             InpMinStopDistancePoints     = 80;       // stop floor in points
 input bool            InpFlattenOnRiskLock         = true;
 
 // -------------------- Inputs: spread controls ----------------------
 input group "Spread / Microstructure Filters"
 input int             InpSpreadMedianLookbackBars  = 20;
-input double          InpSpreadMultiplierMax       = 1.55;
+input double          InpSpreadMultiplierMax       = 1.45;
 
 // -------------------------------------------------------------------
 CTrade   g_trade;
@@ -324,6 +327,11 @@ bool InWindowMinute(const int now_minute, const int start_minute, const int end_
    if(start_minute <= end_minute)
       return (now_minute >= start_minute && now_minute <= end_minute);
    return (now_minute >= start_minute || now_minute <= end_minute); // Wrap midnight
+}
+
+datetime ServerToUTC(const datetime ts_server)
+{
+   return ts_server - (InpServerToUTCOffsetHours * 3600);
 }
 
 bool InTradingSessionUTC(const datetime now_gmt)
@@ -596,9 +604,9 @@ void ComputeOFIAndImbalance(const datetime now_ts, const int window_sec, double 
 void UpdateRiskAnchors()
 {
    double eq = AccountInfoDouble(ACCOUNT_EQUITY);
-   datetime now_gmt = TimeGMT();
-   int day_id = DayIdUTC(now_gmt);
-   int week_id = WeekIdUTC(now_gmt);
+   datetime now_ts = TimeCurrent();
+   int day_id = DayIdUTC(now_ts);
+   int week_id = WeekIdUTC(now_ts);
 
    if(g_lastDayId != day_id)
    {
@@ -644,17 +652,32 @@ bool IsRiskLocked()
    return (g_dailyLocked || g_weeklyLocked || g_hardLocked);
 }
 
-double EstimateRiskAmount(const double lots, const double stop_distance_price)
+double RiskPerLotByStop(const int direction, const double entry_price, const double stop_price)
 {
+   if((direction != 1 && direction != -1) || entry_price <= 0.0 || stop_price <= 0.0)
+      return 0.0;
+
+   double pnl = 0.0;
+   bool calc_ok = false;
+   if(direction > 0)
+      calc_ok = OrderCalcProfit(ORDER_TYPE_BUY, g_symbol, 1.0, entry_price, stop_price, pnl);
+   else
+      calc_ok = OrderCalcProfit(ORDER_TYPE_SELL, g_symbol, 1.0, entry_price, stop_price, pnl);
+
+   if(calc_ok && MathAbs(pnl) > 1e-10)
+      return MathAbs(pnl);
+
+   // Fallback for brokers where OrderCalcProfit can fail for synthetic symbols.
    double tick_size  = SymbolInfoDouble(g_symbol, SYMBOL_TRADE_TICK_SIZE);
-   double tick_value = SymbolInfoDouble(g_symbol, SYMBOL_TRADE_TICK_VALUE);
+   double tick_value = SymbolInfoDouble(g_symbol, SYMBOL_TRADE_TICK_VALUE_LOSS);
+   if(tick_value <= 0.0)
+      tick_value = SymbolInfoDouble(g_symbol, SYMBOL_TRADE_TICK_VALUE_PROFIT);
+   if(tick_value <= 0.0)
+      tick_value = SymbolInfoDouble(g_symbol, SYMBOL_TRADE_TICK_VALUE);
    if(tick_size <= 0.0 || tick_value <= 0.0)
       return 0.0;
 
-   double ticks_to_stop = stop_distance_price / tick_size;
-   if(ticks_to_stop <= 0.0)
-      return 0.0;
-   return lots * ticks_to_stop * tick_value;
+   return MathAbs(entry_price - stop_price) / tick_size * tick_value;
 }
 
 double DrawdownThrottle()
@@ -676,10 +699,15 @@ double VolatilityThrottle(const double atr, const double mid_price)
    return MathMin(1.0, InpTargetAtrPct / atr_pct);
 }
 
-double CalculatePositionSize(const double stop_distance_price, const double conviction, const double atr, const double mid_price)
+double CalculatePositionSize(const int direction,
+                             const double entry_price,
+                             const double stop_price,
+                             const double conviction,
+                             const double atr,
+                             const double mid_price)
 {
    double eq = AccountInfoDouble(ACCOUNT_EQUITY);
-   if(eq <= 0.0 || stop_distance_price <= 0.0)
+   if(eq <= 0.0 || entry_price <= 0.0 || stop_price <= 0.0)
       return 0.0;
 
    double base_risk_amt = eq * (InpBaseRiskPct / 100.0);
@@ -688,12 +716,7 @@ double CalculatePositionSize(const double stop_distance_price, const double conv
    double vol_mult = VolatilityThrottle(atr, mid_price);
    double risk_amt = base_risk_amt * conviction_mult * dd_mult * vol_mult;
 
-   double tick_size  = SymbolInfoDouble(g_symbol, SYMBOL_TRADE_TICK_SIZE);
-   double tick_value = SymbolInfoDouble(g_symbol, SYMBOL_TRADE_TICK_VALUE);
-   if(tick_size <= 0.0 || tick_value <= 0.0)
-      return 0.0;
-
-   double risk_per_lot = (stop_distance_price / tick_size) * tick_value;
+   double risk_per_lot = RiskPerLotByStop(direction, entry_price, stop_price);
    if(risk_per_lot <= 0.0)
       return 0.0;
 
@@ -704,6 +727,9 @@ double CalculatePositionSize(const double stop_distance_price, const double conv
    double est_risk = lots * risk_per_lot;
    if(est_risk > max_trade_risk_amt && est_risk > 0.0)
       lots *= (max_trade_risk_amt / est_risk);
+
+   if(InpMaxLots > 0.0)
+      lots = MathMin(lots, InpMaxLots);
 
    return NormalizeLots(lots);
 }
@@ -722,18 +748,17 @@ bool TryOpenTrade(const int direction, const bool trend_regime, const double atr
    double ask = SymbolInfoDouble(g_symbol, SYMBOL_ASK);
    double bid = SymbolInfoDouble(g_symbol, SYMBOL_BID);
    double mid = 0.5 * (ask + bid);
+   double pt  = SymbolInfoDouble(g_symbol, SYMBOL_POINT);
 
-   if(ask <= 0.0 || bid <= 0.0 || atr <= 0.0)
+   if(ask <= 0.0 || bid <= 0.0 || atr <= 0.0 || pt <= 0.0)
       return false;
 
    double stop_mult = trend_regime ? InpBOSL_ATR : InpMRSL_ATR;
    double stop_dist = stop_mult * atr;
+   double min_stop_dist = InpMinStopDistancePoints * pt;
+   if(min_stop_dist > 0.0)
+      stop_dist = MathMax(stop_dist, min_stop_dist);
    if(stop_dist <= 0.0)
-      return false;
-
-   double lots = CalculatePositionSize(stop_dist, MathAbs(conviction_score), atr, mid);
-   double min_vol = SymbolInfoDouble(g_symbol, SYMBOL_VOLUME_MIN);
-   if(lots < min_vol)
       return false;
 
    int digits = (int)SymbolInfoInteger(g_symbol, SYMBOL_DIGITS);
@@ -747,15 +772,25 @@ bool TryOpenTrade(const int direction, const bool trend_regime, const double atr
    if(direction > 0)
    {
       sl = NormalizeDouble(ask - stop_dist, digits);
+      sl = NormalizeStopForBroker(true, sl);
       if(!trend_regime)
          tp = NormalizeDouble(ask + InpMRTP_ATR * atr, digits);
    }
    else
    {
       sl = NormalizeDouble(bid + stop_dist, digits);
+      sl = NormalizeStopForBroker(false, sl);
       if(!trend_regime)
          tp = NormalizeDouble(bid - InpMRTP_ATR * atr, digits);
    }
+
+   double entry_price = (direction > 0) ? ask : bid;
+   double lots = CalculatePositionSize(direction, entry_price, sl, MathAbs(conviction_score), atr, mid);
+   double min_vol = SymbolInfoDouble(g_symbol, SYMBOL_VOLUME_MIN);
+   if(lots < min_vol)
+      return false;
+   double risk_per_lot = RiskPerLotByStop(direction, entry_price, sl);
+   double est_risk_cash = lots * risk_per_lot;
 
    bool ok = false;
    if(direction > 0)
@@ -777,7 +812,8 @@ bool TryOpenTrade(const int direction, const bool trend_regime, const double atr
    g_longSignalCount = 0;
    g_shortSignalCount = 0;
 
-   PrintFormat("Opened %s %s %.2f lots | ATR=%.3f", g_symbol, comment, lots, atr);
+   PrintFormat("Opened %s %s %.2f lots | ATR=%.3f | estRisk=%.2f",
+               g_symbol, comment, lots, atr, est_risk_cash);
    return true;
 }
 
@@ -1035,8 +1071,9 @@ void EvaluateSignalsOnNewBar()
                    imb < -InpMRImbalanceThreshold);
    }
 
+   datetime bar_utc = ServerToUTC(rates[1].time);
    bool preconditions =
-      InTradingSessionUTC(TimeGMT()) &&
+      InTradingSessionUTC(bar_utc) &&
       SpreadFilterPass(spread_pts) &&
       !IsRiskLocked();
 
@@ -1090,11 +1127,12 @@ int OnInit()
    }
 
    double eq = AccountInfoDouble(ACCOUNT_EQUITY);
+   datetime now_ts = TimeCurrent();
    g_equityPeak = eq;
    g_dailyStartEquity = eq;
    g_weeklyStartEquity = eq;
-   g_lastDayId = DayIdUTC(TimeGMT());
-   g_lastWeekId = WeekIdUTC(TimeGMT());
+   g_lastDayId = DayIdUTC(now_ts);
+   g_lastWeekId = WeekIdUTC(now_ts);
 
    g_lastSignalBar = iTime(g_symbol, InpSignalTF, 0);
    SyncActiveStateWithPosition();

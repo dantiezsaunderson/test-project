@@ -28,6 +28,8 @@ Hybrid intraday EA for gold scalping on MT5:
 6. **Risk engine**:
    - Base risk per trade with conviction/drawdown/volatility multipliers
    - Per-trade risk cap
+   - Broker-accurate stop risk sizing via `OrderCalcProfit`
+   - Absolute lot cap and minimum stop-distance floor
    - Daily and weekly loss locks
    - Hard drawdown kill-switch
    - Spread regime filter
@@ -46,9 +48,11 @@ Hybrid intraday EA for gold scalping on MT5:
 - Equivalent preset file: `sets/XAU_XIMH_Ultima_Aggressive.set`
 - Core defaults include:
   - `InpConfirmBars = 1`
-  - `InpBaseRiskPct = 0.35`
-  - `InpMaxDailyLossPct = 1.80`
-  - `InpSpreadMultiplierMax = 1.55`
+  - `InpBaseRiskPct = 0.08`
+  - `InpMaxLossPerTradePct = 0.12`
+  - `InpMaxLots = 1.00`
+  - `InpMinStopDistancePoints = 80`
+  - `InpSpreadMultiplierMax = 1.45`
 
 ## How to Load Presets in Strategy Tester (MT5)
 
@@ -57,8 +61,11 @@ Hybrid intraday EA for gold scalping on MT5:
 3. Symbol: **XAUUSD** (or your broker suffix variant, e.g., `XAUUSD.` / `XAUUSDm`).
 4. Timeframe: **M1**.
 5. In **Inputs**, click **Load** and choose one of the files in `MT5/sets/`.
-6. Start with:
-   - Aggressive: highest activity
+6. If your broker server is not UTC, set `InpServerToUTCOffsetHours`:
+   - Example: server = UTC+2 -> set `2`
+   - Example: server = UTC+3 -> set `3`
+7. Start with:
+   - Aggressive: highest activity (still risk-capped)
    - Balanced: moderate turnover/risk
    - Conservative: lowest activity/risk
 
@@ -68,6 +75,12 @@ Hybrid intraday EA for gold scalping on MT5:
 2. Include realistic spread and commissions.
 3. Test multiple years and event-heavy periods.
 4. Validate out-of-sample windows before live deployment.
+
+## If Results Look Wrong (Very Few Trades / Oversized Lot)
+
+1. Confirm `InpServerToUTCOffsetHours` matches your broker server (common: `2` or `3`).
+2. Start with `XAU_XIMH_Ultima_Balanced.set` for calibration, then move to aggressive.
+3. Check the Journal entry logs for `estRisk=...` and ensure per-trade cash risk is in your expected range.
 
 ## Notes
 
