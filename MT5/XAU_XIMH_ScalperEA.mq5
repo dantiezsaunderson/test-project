@@ -3,7 +3,7 @@
 //|  Intraday hybrid: mean-reversion + breakout for XAUUSD (MT5)     |
 //+------------------------------------------------------------------+
 #property strict
-#property version   "1.20"
+#property version   "2.00"
 #property description "XAU intraday hybrid scalper: ADX/Hurst regime, VWAP/OFI signals, ATR risk."
 
 #include <Trade/Trade.mqh>

@@ -1,5 +1,7 @@
 # XAU_XIMH_ScalperEA (MT5)
 
+Current release: **v2.00**
+
 Hybrid intraday EA for gold scalping on MT5:
 
 - **Mean Reversion mode** in non-trend regimes
