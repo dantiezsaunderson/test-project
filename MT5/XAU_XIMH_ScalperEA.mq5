@@ -3,17 +3,17 @@
 //|  Intraday hybrid: mean-reversion + breakout for XAUUSD (MT5)     |
 //+------------------------------------------------------------------+
 #property strict
-#property version   "1.00"
+#property version   "1.10"
 #property description "XAU intraday hybrid scalper: ADX/Hurst regime, VWAP/OFI signals, ATR risk."
 
 #include <Trade/Trade.mqh>
 
 // -------------------- Inputs: execution ----------------------------
 input group "Execution"
-input string          InpTradeSymbol               = "";       // Blank = chart symbol
+input string          InpTradeSymbol               = "";       // Blank = chart/tester symbol
 input ENUM_TIMEFRAMES InpSignalTF                  = PERIOD_M1;
 input ulong           InpMagic                     = 26022026;
-input int             InpMaxDeviationPoints        = 30;
+input int             InpMaxDeviationPoints        = 40;
 
 // -------------------- Inputs: sessions (UTC) -----------------------
 input group "Trading Sessions (UTC)"
@@ -28,54 +28,54 @@ input int             InpSession2EndMinute         = 30;
 
 // -------------------- Inputs: feature windows ----------------------
 input group "Feature Windows"
-input int             InpVWAPLookbackBars          = 30;
-input int             InpBreakoutLookbackBars      = 20;
-input int             InpATRPeriod                 = 14;
-input int             InpADXPeriod                 = 14;
-input int             InpHurstLookbackBars         = 60;
-input int             InpOfiZLookbackBars          = 20;
-input int             InpConfirmBars               = 2;
-input int             InpTickFlowWindowSec         = 60;
-input int             InpTickFlowKeepSec           = 1800;
+input int             InpVWAPLookbackBars          = 20;
+input int             InpBreakoutLookbackBars      = 15;
+input int             InpATRPeriod                 = 10;
+input int             InpADXPeriod                 = 12;
+input int             InpHurstLookbackBars         = 48;
+input int             InpOfiZLookbackBars          = 16;
+input int             InpConfirmBars               = 1;
+input int             InpTickFlowWindowSec         = 45;
+input int             InpTickFlowKeepSec           = 1200;
 
 // -------------------- Inputs: thresholds ---------------------------
 input group "Signal Thresholds"
-input double          InpAdxTrendThreshold         = 23.0;
-input double          InpHurstTrendThreshold       = 0.52;
-input double          InpMRScoreThreshold          = 1.10;
-input double          InpMRVwapZThreshold          = 1.00;
-input double          InpMRImbalanceThreshold      = 0.12;
-input double          InpBOScoreThreshold          = 1.20;
-input double          InpBOBreakoutZThreshold      = 0.15;
-input double          InpBOOfiZThreshold           = 0.30;
-input double          InpBreakoutVolumeMultiplier  = 1.20;
+input double          InpAdxTrendThreshold         = 20.0;
+input double          InpHurstTrendThreshold       = 0.50;
+input double          InpMRScoreThreshold          = 0.95;
+input double          InpMRVwapZThreshold          = 0.85;
+input double          InpMRImbalanceThreshold      = 0.08;
+input double          InpBOScoreThreshold          = 1.00;
+input double          InpBOBreakoutZThreshold      = 0.10;
+input double          InpBOOfiZThreshold           = 0.20;
+input double          InpBreakoutVolumeMultiplier  = 1.05;
 
 // -------------------- Inputs: exits --------------------------------
 input group "Exits (ATR Multipliers)"
-input double          InpMRTP_ATR                  = 0.60;
+input double          InpMRTP_ATR                  = 0.55;
 input double          InpMRSL_ATR                  = 0.40;
-input int             InpMRTimeStopMin             = 8;
-input double          InpBOTP1_ATR                 = 0.80;
-input double          InpBOSL_ATR                  = 0.50;
-input double          InpBOTrail_ATR               = 0.50;
-input int             InpBOTimeStopMin             = 20;
-input double          InpBreakoutPartialCloseFrac  = 0.50;
+input int             InpMRTimeStopMin             = 6;
+input double          InpBOTP1_ATR                 = 0.70;
+input double          InpBOSL_ATR                  = 0.45;
+input double          InpBOTrail_ATR               = 0.40;
+input int             InpBOTimeStopMin             = 14;
+input double          InpBreakoutPartialCloseFrac  = 0.60;
 
 // -------------------- Inputs: sizing/risk --------------------------
 input group "Sizing & Risk"
-input double          InpBaseRiskPct               = 0.20;     // % equity per trade (base)
-input double          InpMaxLossPerTradePct        = 0.30;     // hard cap
-input double          InpMaxDailyLossPct           = 1.25;
-input double          InpMaxWeeklyLossPct          = 2.50;
-input double          InpDrawdownSoftPct           = 8.0;
-input double          InpDrawdownHardPct           = 10.0;
-input double          InpTargetAtrPct              = 0.08;     // target ATR as % of price
+input double          InpBaseRiskPct               = 0.35;     // % equity per trade (base)
+input double          InpMaxLossPerTradePct        = 0.45;     // hard cap
+input double          InpMaxDailyLossPct           = 1.80;
+input double          InpMaxWeeklyLossPct          = 3.50;
+input double          InpDrawdownSoftPct           = 9.0;
+input double          InpDrawdownHardPct           = 12.0;
+input double          InpTargetAtrPct              = 0.10;     // target ATR as % of price
 input bool            InpFlattenOnRiskLock         = true;
 
 // -------------------- Inputs: spread controls ----------------------
 input group "Spread / Microstructure Filters"
-input int             InpSpreadMedianLookbackBars  = 30;
-input double          InpSpreadMultiplierMax       = 1.30;
+input int             InpSpreadMedianLookbackBars  = 20;
+input double          InpSpreadMultiplierMax       = 1.55;
 
 // -------------------------------------------------------------------
 CTrade   g_trade;

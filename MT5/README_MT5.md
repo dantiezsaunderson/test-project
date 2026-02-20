@@ -9,6 +9,9 @@ Hybrid intraday EA for gold scalping on MT5:
 ## Files
 
 - `XAU_XIMH_ScalperEA.mq5` - Expert Advisor source
+- `sets/XAU_XIMH_Ultima_Aggressive.set` - Aggressive profile (**matches EA defaults**)
+- `sets/XAU_XIMH_Ultima_Balanced.set` - Balanced profile
+- `sets/XAU_XIMH_Ultima_Conservative.set` - Conservative profile
 
 ## Strategy Components Implemented
 
@@ -37,14 +40,27 @@ Hybrid intraday EA for gold scalping on MT5:
 3. Compile the EA (`F7`).
 4. Attach EA to your **XAUUSD** chart (recommended start on `M1`).
 
-## Recommended Initial Parameters
+## Default Profile (Baked into EA)
 
-- `InpSignalTF = PERIOD_M1`
-- `InpTradeSymbol = ""` (use chart symbol)
-- `InpBaseRiskPct = 0.20`
-- Keep session windows in UTC:
-  - 06:30-10:30
-  - 12:30-16:30
+- The EA now ships with the **Ultima aggressive profile** as default input values.
+- Equivalent preset file: `sets/XAU_XIMH_Ultima_Aggressive.set`
+- Core defaults include:
+  - `InpConfirmBars = 1`
+  - `InpBaseRiskPct = 0.35`
+  - `InpMaxDailyLossPct = 1.80`
+  - `InpSpreadMultiplierMax = 1.55`
+
+## How to Load Presets in Strategy Tester (MT5)
+
+1. Open **View -> Strategy Tester**.
+2. Select `XAU_XIMH_ScalperEA`.
+3. Symbol: **XAUUSD** (or your broker suffix variant, e.g., `XAUUSD.` / `XAUUSDm`).
+4. Timeframe: **M1**.
+5. In **Inputs**, click **Load** and choose one of the files in `MT5/sets/`.
+6. Start with:
+   - Aggressive: highest activity
+   - Balanced: moderate turnover/risk
+   - Conservative: lowest activity/risk
 
 ## Backtest Checklist
 
