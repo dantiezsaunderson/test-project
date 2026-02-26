@@ -171,6 +171,12 @@ input group "News / Session Filters"
 input bool   UseManualNewsBlackout = true;
 input string ManualNewsBlackoutUTC = "13:25-13:40;15:55-16:10";
 input int    NewsBlackoutExtraMinutes = 0;
+input int    ServerToUTCOffsetHours = 0;          // UTC = server time + this offset
+input bool   BacktestRelaxFilters = true;         // Disable session/news/spread gates in tester
+
+input group "Diagnostics"
+input bool   PrintDiagnosticsInTester = true;
+input int    DiagnosticsEveryNBarsM5 = 24;
 
 input group "Edge Decay Controls"
 input bool   EnableEdgeDecayMonitor = true;
@@ -611,14 +617,28 @@ bool MinuteInWindow(const int minuteOfDay, const int startMin, const int endMin)
    return (minuteOfDay >= startMin || minuteOfDay <= endMin);
 }
 
+bool IsTesterRelaxMode()
+{
+   return (BacktestRelaxFilters && (bool)MQLInfoInteger(MQL_TESTER));
+}
+
+int FilterMinuteOfDay()
+{
+   datetime ref = TimeTradeServer() + (datetime)(ServerToUTCOffsetHours * 3600);
+   MqlDateTime tm;
+   TimeToStruct(ref, tm);
+   return tm.hour * 60 + tm.min;
+}
+
 bool IsInNewsBlackout()
 {
+   if(IsTesterRelaxMode())
+      return false;
+
    if(!UseManualNewsBlackout || g_newsWindowCount <= 0)
       return false;
 
-   MqlDateTime utc;
-   TimeToStruct(TimeGMT(), utc);
-   int nowMin = utc.hour * 60 + utc.min;
+   int nowMin = FilterMinuteOfDay();
 
    for(int i = 0; i < g_newsWindowCount; ++i)
    {
@@ -632,9 +652,10 @@ bool IsInNewsBlackout()
 
 bool IsInS1Session()
 {
-   MqlDateTime utc;
-   TimeToStruct(TimeGMT(), utc);
-   int h = utc.hour;
+   if(IsTesterRelaxMode())
+      return true;
+
+   int h = FilterMinuteOfDay() / 60;
    if(S1SessionStartUTC == S1SessionEndUTC)
       return true;
    if(S1SessionStartUTC < S1SessionEndUTC)
@@ -1143,7 +1164,7 @@ StrategySignal EvaluateS1(const MarketContext &ctx)
 
    double medianSpread = MedianSpread();
    bool spreadOk = true;
-   if(medianSpread > 0.0)
+   if(!IsTesterRelaxMode() && medianSpread > 0.0)
       spreadOk = (ctx.spreadPoints <= S1SpreadMedianMultiplier * medianSpread);
 
    bool baseOk = spreadOk && IsInS1Session() && !IsInNewsBlackout();
@@ -1361,7 +1382,9 @@ bool OpenMarketPosition(const int sid, const int direction, const StrategySignal
       ok = g_trade.Sell(lots, _Symbol, 0.0, sl, tp, comment);
 
    if(!ok)
-      PrintFormat("Order failed %s dir=%d err=%d", comment, direction, _LastError);
+      PrintFormat("Order failed %s dir=%d err=%d ret=%u (%s) lots=%.2f sl=%.5f tp=%.5f",
+                  comment, direction, _LastError, g_trade.ResultRetcode(),
+                  g_trade.ResultRetcodeDescription(), lots, sl, tp);
    return ok;
 }
 
@@ -1584,7 +1607,11 @@ void ManageGrid(const MarketContext &ctx)
          if(PortfolioCanAddRiskUSD(riskPerLeg))
          {
             g_trade.SetExpertMagicNumber(magic);
-            g_trade.BuyLimit(lots, buyPrice, _Symbol, sl, tp, ORDER_TIME_GTC, 0, StrategyTag(STRAT_S5_GRID));
+            bool ok = g_trade.BuyLimit(lots, buyPrice, _Symbol, sl, tp, ORDER_TIME_GTC, 0, StrategyTag(STRAT_S5_GRID));
+            if(!ok)
+               PrintFormat("Grid BuyLimit failed err=%d ret=%u (%s) lots=%.2f price=%.5f sl=%.5f tp=%.5f",
+                           _LastError, g_trade.ResultRetcode(), g_trade.ResultRetcodeDescription(),
+                           lots, buyPrice, sl, tp);
          }
       }
 
@@ -1596,7 +1623,11 @@ void ManageGrid(const MarketContext &ctx)
          if(PortfolioCanAddRiskUSD(riskPerLeg))
          {
             g_trade.SetExpertMagicNumber(magic);
-            g_trade.SellLimit(lots, sellPrice, _Symbol, sl, tp, ORDER_TIME_GTC, 0, StrategyTag(STRAT_S5_GRID));
+            bool ok = g_trade.SellLimit(lots, sellPrice, _Symbol, sl, tp, ORDER_TIME_GTC, 0, StrategyTag(STRAT_S5_GRID));
+            if(!ok)
+               PrintFormat("Grid SellLimit failed err=%d ret=%u (%s) lots=%.2f price=%.5f sl=%.5f tp=%.5f",
+                           _LastError, g_trade.ResultRetcode(), g_trade.ResultRetcodeDescription(),
+                           lots, sellPrice, sl, tp);
          }
       }
    }
@@ -1908,6 +1939,13 @@ void OnTimer()
    UpdateEdgeDecay();
 }
 
+string RegimeLabel(const RegimeType r)
+{
+   if(r == REGIME_TREND) return "TREND";
+   if(r == REGIME_RANGE) return "RANGE";
+   return "TRANSITION";
+}
+
 void OnTick()
 {
    // Spread telemetry for S1 execution quality gating.
@@ -1934,6 +1972,26 @@ void OnTick()
    StrategySignal s3 = EvaluateS3(ctx);
    StrategySignal s4 = EvaluateS4(ctx);
    StrategySignal s6 = EvaluateS6(ctx);
+
+   if(PrintDiagnosticsInTester && (bool)MQLInfoInteger(MQL_TESTER) && newM5)
+   {
+      static int diagBarCounter = 0;
+      diagBarCounter++;
+      int printEvery = MathMax(1, DiagnosticsEveryNBarsM5);
+      if((diagBarCounter % printEvery) == 0)
+      {
+         PrintFormat("AURIC_DIAG regime=%s adx=%.2f ts=%.3f z=%.3f hv=%d spread=%.1f "
+                     "S1(v=%.3f L=%d S=%d) S2(v=%.3f L=%d S=%d) S3(v=%.3f L=%d S=%d) "
+                     "S4(v=%.3f L=%d S=%d) S6(v=%.3f L=%d S=%d) halted=%d",
+                     RegimeLabel(ctx.regime), ctx.adxM5, ctx.trendScore, ctx.zScore, (int)ctx.highVol, ctx.spreadPoints,
+                     s1.value, (int)s1.longEntry, (int)s1.shortEntry,
+                     s2.value, (int)s2.longEntry, (int)s2.shortEntry,
+                     s3.value, (int)s3.longEntry, (int)s3.shortEntry,
+                     s4.value, (int)s4.longEntry, (int)s4.shortEntry,
+                     s6.value, (int)s6.longEntry, (int)s6.shortEntry,
+                     (int)TradingHalted());
+      }
+   }
 
    ManageOpenPositions(ctx, s1, s2, s3, s4, s6);
    ManageGrid(ctx);

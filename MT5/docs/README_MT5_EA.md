@@ -73,3 +73,13 @@ Use walk-forward and OOS validation after each optimization stage.
 - Validate max slippage under live conditions.
 - Start with reduced risk and scale up in phases.
 - Review logs for risk halts and edge-decay state changes weekly.
+
+## 7) If tester shows "no trades"
+
+Use this quick checklist:
+
+1. Use **Every tick based on real ticks** model.
+2. Confirm all strategy toggles are enabled (`EnableS1..EnableS6=true`).
+3. Keep `BacktestRelaxFilters=true` for first validation pass.
+4. Set `PrintDiagnosticsInTester=true` and check `AURIC_DIAG` lines in Journal.
+5. If needed, adjust `ServerToUTCOffsetHours` so session/news windows align to broker server time.
