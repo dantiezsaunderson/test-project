@@ -212,12 +212,12 @@ double g_maxVolume = 0.0;
 double g_volumeStep = 0.0;
 int    g_symbolDigits = 0;
 
-double g_spreadBuffer[SPREAD_BUFFER_SIZE];
+double g_spreadBuffer[300];
 int g_spreadCount = 0;
 int g_spreadIndex = 0;
 
-int g_newsStartMin[MAX_NEWS_WINDOWS];
-int g_newsEndMin[MAX_NEWS_WINDOWS];
+int g_newsStartMin[32];
+int g_newsEndMin[32];
 int g_newsWindowCount = 0;
 
 double g_highWaterEquity = 0.0;
@@ -230,12 +230,12 @@ bool g_dailyHalt = false;
 bool g_weeklyPenalty = false;
 datetime g_gridCooldownUntil = 0;
 
-double g_strategyRiskScaler[STRATEGY_COUNT];
-bool g_strategyDisabled[STRATEGY_COUNT];
-int g_strategyLossStreak[STRATEGY_COUNT];
-double g_strategyPnlRing[STRATEGY_COUNT][EDGE_BUFFER_SIZE];
-int g_strategyPnlCount[STRATEGY_COUNT];
-int g_strategyPnlWriteIndex[STRATEGY_COUNT];
+double g_strategyRiskScaler[7];
+bool g_strategyDisabled[7];
+int g_strategyLossStreak[7];
+double g_strategyPnlRing[7][120];
+int g_strategyPnlCount[7];
+int g_strategyPnlWriteIndex[7];
 
 ulong g_lastProcessedDeal = 0;
 
@@ -269,6 +269,16 @@ bool IsFiniteNumber(const double v)
    if(v != v)
       return false;
    return true;
+}
+
+double FastTanh(const double x)
+{
+   if(x >= 20.0)
+      return 1.0;
+   if(x <= -20.0)
+      return -1.0;
+   double e2x = MathExp(2.0 * x);
+   return (e2x - 1.0) / (e2x + 1.0);
 }
 
 int StrategyFromMagic(const long magic)
@@ -1087,8 +1097,8 @@ bool BuildContext(MarketContext &ctx)
 
    double eps = 1e-9;
    ctx.trendScore =
-      MathTanH((ctx.ema20M5 - ctx.ema100M5) / MathMax(1.5 * ctx.atrM5, eps)) +
-      0.5 * MathTanH((ctx.ema50M5 - ctx.ema50M5Shift10) / MathMax(ctx.atrM5, eps));
+      FastTanh((ctx.ema20M5 - ctx.ema100M5) / MathMax(1.5 * ctx.atrM5, eps)) +
+      0.5 * FastTanh((ctx.ema50M5 - ctx.ema50M5Shift10) / MathMax(ctx.atrM5, eps));
    ctx.trendScore = Clamp(ctx.trendScore, -2.0, 2.0);
 
    ctx.zScore = (ctx.mid - ctx.vwapM5) / MathMax(0.8 * ctx.atrM5, eps);
