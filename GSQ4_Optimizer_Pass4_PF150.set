@@ -1,0 +1,76 @@
+; GS Quant Architect v4.01 - Optimizer Pass 4 (PF >= 1.50)
+; Goal: push strategy toward higher quality trades and PF-first behavior.
+; Use Strategy Tester criterion = Custom max (uses OnTester PF floor logic).
+;
+; Format:
+; parameter=value||start||step||stop||optimize
+
+InpMagicNumber=20260306||20260306||1||20260306||N
+InpTradeComment=GSQ4_OPT_PF150||GSQ4_OPT_PF150||0||GSQ4_OPT_PF150||N
+InpDebugMode=false||false||0||true||N
+InpLogTrades=false||false||0||true||N
+InpSignalTF=15||15||0||15||N
+InpWarmupBars=20||20||1||20||N
+
+InpMaxSlippage=30||30||1||30||N
+InpSpreadFilterPoints=10.0||0.0||5.0||20.0||Y
+InpMinSecondsBetweenEntries=30||30||1||30||N
+InpAllowBuy=true||true||0||true||N
+InpAllowSell=true||true||0||true||N
+InpOnePositionPerDirection=true||true||0||true||N
+InpMaxOpenPositions=2||2||1||2||N
+
+InpRiskLevel=1||1||0||1||N
+InpFixedLot=0.01||0.01||0.00||0.01||N
+InpMaxDailyDrawdown=6.0||6.0||0.1||6.0||N
+InpMaxTotalDrawdown=20.0||20.0||0.1||20.0||N
+
+InpEnableTrend=true||true||0||true||N
+InpEnableMeanReversion=true||true||0||true||N
+InpEnableBreakout=true||true||0||true||N
+InpEnableMomentum=true||true||0||true||N
+InpEnableVolatility=true||true||0||true||N
+
+InpATRPeriod=14||14||1||14||N
+InpEMAFast=21||21||1||21||N
+InpEMASlow=55||55||1||55||N
+InpEMATrend=200||200||1||200||N
+InpRSIPeriod=14||14||1||14||N
+InpRSIOverbought=68.0||68.0||0.1||68.0||N
+InpRSIOversold=32.0||32.0||0.1||32.0||N
+InpBBPeriod=20||20||1||20||N
+InpBBDev=2.0||2.0||0.1||2.0||N
+InpADXPeriod=14||14||1||14||N
+InpADXTrendMin=22.0||18.0||2.0||26.0||Y
+InpBreakoutLookback=24||24||1||24||N
+InpATRFastPeriod=7||7||1||7||N
+InpATRSlowPeriod=50||50||1||50||N
+
+; PF-first entry tuning (stricter than previous passes)
+InpEntryScoreBase=50.0||45.0||5.0||65.0||Y
+InpEntryScoreMin=24.0||20.0||2.0||30.0||Y
+InpThresholdDecayBars=24||12||6||30||Y
+InpThresholdDecayStep=5.0||5.0||0.1||5.0||N
+InpGuaranteeActivity=false||false||0||false||N
+InpForceTradeBars=24||24||1||24||N
+
+; Exit tuning for quality over quantity
+InpSL_ATR_Mult=2.0||1.6||0.2||2.4||Y
+InpTP_RR=2.4||2.0||0.2||3.0||Y
+InpTrailATR_Mult=1.4||1.2||0.2||1.8||Y
+InpBreakEvenATR=1.2||1.0||0.2||1.4||Y
+InpMaxHoldBars=280||240||40||320||Y
+
+; session profile can strongly affect PF
+InpSessionFilter=0||0||1||5||Y
+InpLondonStart=8||8||1||8||N
+InpLondonEnd=16||16||1||16||N
+InpNYStart=13||13||1||13||N
+InpNYEnd=21||21||1||21||N
+InpAsianStart=0||0||1||0||N
+InpAsianEnd=8||8||1||8||N
+InpNoTradeFriday=false||false||0||true||N
+
+; Custom max floors (from EA inputs)
+InpOptMinProfitFactor=1.5||1.5||0.1||1.5||N
+InpOptMinTrades=80||80||1||80||N

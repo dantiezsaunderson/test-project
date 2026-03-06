@@ -4,7 +4,7 @@
 //+------------------------------------------------------------------+
 #property copyright "GS Quant Desk - Rebuilt"
 #property link      "https://github.com/gs-quant"
-#property version   "4.00"
+#property version   "4.01"
 #property strict
 
 #include <Trade/Trade.mqh>
@@ -80,6 +80,10 @@ input int      InpThresholdDecayBars        = 24;
 input double   InpThresholdDecayStep        = 5.0;
 input bool     InpGuaranteeActivity         = true;   // opens probe trade if no activity
 input int      InpForceTradeBars            = 24;     // bars without trades before force
+
+input group "==== OPTIMIZER TARGETS ===="
+input double   InpOptMinProfitFactor        = 1.50;   // Custom max floor
+input int      InpOptMinTrades              = 80;     // Stability floor
 
 input group "==== EXIT / MANAGEMENT ===="
 input double   InpSL_ATR_Mult               = 1.8;
@@ -667,7 +671,7 @@ void UpdateRiskState(bool &allowEntries, double &ddTotal, double &ddDaily)
 int OnInit()
 {
    Print("===========================================");
-   Print(" GS QUANT ARCHITECT v4.00 - REBUILT INIT");
+   Print(" GS QUANT ARCHITECT v4.01 - REBUILT INIT");
    Print("===========================================");
 
    trade.SetExpertMagicNumber(InpMagicNumber);
@@ -830,7 +834,13 @@ double OnTester()
    double profit = TesterStatistics(STAT_PROFIT);
    double pf = TesterStatistics(STAT_PROFIT_FACTOR);
    double dd = TesterStatistics(STAT_EQUITY_DDREL_PERCENT);
-   if(trades < 10 || profit <= 0) return 0.0;
-   return pf * MathSqrt(trades) * (1.0 - dd / 100.0);
+   if(profit <= 0.0) return 0.0;
+   if(trades < InpOptMinTrades) return 0.0;
+   if(pf < InpOptMinProfitFactor) return 0.0;
+
+   // PF-first objective once floors are met.
+   // Higher PF dominates, then lower DD and enough sample size.
+   double pfEdge = pf - InpOptMinProfitFactor;
+   return (pfEdge * 1000.0) + (pf * 100.0) - (dd * 5.0) + MathSqrt(trades);
 }
 //+------------------------------------------------------------------+
