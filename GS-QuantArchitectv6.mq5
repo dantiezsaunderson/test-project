@@ -211,17 +211,34 @@ double g_volRatio;
 ENUM_MARKET_REGIME g_regime;
 
 // State
-datetime g_lastBar;
 double   g_dayEquity, g_peakEquity;
 int      g_warmup;
 bool     g_ready;
 int      g_totalOpen;
+datetime g_lastWarmupBar;
+datetime g_lastBarS1, g_lastBarS2, g_lastBarS3, g_lastBarS4;
+datetime g_lastBarS5, g_lastBarS6, g_lastBarS7, g_lastBarS8;
 
 // Symbol
 double   g_point, g_tickSz, g_tickVal, g_lotStep, g_minLot, g_maxLot;
 int      g_digits;
 int      g_stopsLevelPts, g_freezeLevelPts;
 double   g_minStopDist;
+
+//+------------------------------------------------------------------+
+//| Helper: per-timeframe new bar check                              |
+//+------------------------------------------------------------------+
+bool IsNewBarTF(ENUM_TIMEFRAMES tf, datetime &lastBarTime)
+{
+   datetime cur = iTime(_Symbol, tf, 0);
+   if(cur <= 0) return false;
+   if(cur != lastBarTime)
+   {
+      lastBarTime = cur;
+      return true;
+   }
+   return false;
+}
 
 //+------------------------------------------------------------------+
 //| INIT                                                              |
@@ -298,9 +315,11 @@ int OnInit()
    strats[7].enabled = InpEnableOrderFlow;
    strats[8].enabled = InpEnableVolatility;
    
-   g_lastBar    = 0;
    g_warmup     = 0;
    g_ready      = false;
+   g_lastWarmupBar = 0;
+   g_lastBarS1 = 0; g_lastBarS2 = 0; g_lastBarS3 = 0; g_lastBarS4 = 0;
+   g_lastBarS5 = 0; g_lastBarS6 = 0; g_lastBarS7 = 0; g_lastBarS8 = 0;
    g_peakEquity = accInfo.Equity();
    g_dayEquity  = g_peakEquity;
    
@@ -343,11 +362,6 @@ double IndVal(int handle, int buffer=0, int shift=0)
 //+------------------------------------------------------------------+
 void OnTick()
 {
-   // New bar detection on chart period
-   datetime curBar = iTime(_Symbol, _Period, 0);
-   bool newBar = (curBar != g_lastBar);
-   if(newBar) g_lastBar = curBar;
-   
    // Price update
    symInfo.Refresh();
    g_bid = symInfo.Bid();
@@ -364,7 +378,7 @@ void OnTick()
    // Warmup
    if(!g_ready)
    {
-      if(newBar) g_warmup++;
+      if(IsNewBarTF(PERIOD_M15, g_lastWarmupBar)) g_warmup++;
       if(g_warmup >= InpWarmupBars)
       {
          g_ready = true;
@@ -372,8 +386,6 @@ void OnTick()
       }
       return;
    }
-   
-   if(!newBar) return;  // Only trade on new bars
    
    // New day
    MqlDateTime dt;
@@ -410,15 +422,15 @@ void OnTick()
    // Manage existing
    ManagePositions();
    
-   // Run strategies
-   if(strats[1].enabled) S1_TrendFollowing();
-   if(strats[2].enabled) S2_MeanReversion();
-   if(strats[3].enabled) S3_Breakout();
-   if(strats[4].enabled) S4_Scalping();
-   if(strats[5].enabled) S5_Grid();
-   if(strats[6].enabled) S6_Swing();
-   if(strats[7].enabled) S7_OrderFlow();
-   if(strats[8].enabled) S8_VolatilityArb();
+   // Run each strategy on its own timeframe bar, not chart timeframe
+   if(strats[1].enabled && IsNewBarTF(InpTF_TF, g_lastBarS1)) S1_TrendFollowing();
+   if(strats[2].enabled && IsNewBarTF(InpMR_TF, g_lastBarS2)) S2_MeanReversion();
+   if(strats[3].enabled && IsNewBarTF(InpBO_TF, g_lastBarS3)) S3_Breakout();
+   if(strats[4].enabled && IsNewBarTF(InpSC_TF, g_lastBarS4)) S4_Scalping();
+   if(strats[5].enabled && IsNewBarTF(PERIOD_M15, g_lastBarS5)) S5_Grid();
+   if(strats[6].enabled && IsNewBarTF(InpSW_TF, g_lastBarS6)) S6_Swing();
+   if(strats[7].enabled && IsNewBarTF(InpOF_TF, g_lastBarS7)) S7_OrderFlow();
+   if(strats[8].enabled && IsNewBarTF(InpVA_TF, g_lastBarS8)) S8_VolatilityArb();
    
    if(InpShowDashboard) DrawDashboard(dd, dailyPnl);
 }
