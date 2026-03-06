@@ -4,7 +4,7 @@
 //+------------------------------------------------------------------+
 #property copyright "GS Quant Desk - Rebuilt"
 #property link      "https://github.com/gs-quant"
-#property version   "4.01"
+#property version   "4.02"
 #property strict
 
 #include <Trade/Trade.mqh>
@@ -80,6 +80,8 @@ input int      InpThresholdDecayBars        = 24;
 input double   InpThresholdDecayStep        = 5.0;
 input bool     InpGuaranteeActivity         = true;   // opens probe trade if no activity
 input int      InpForceTradeBars            = 24;     // bars without trades before force
+input double   InpForceRiskScale            = 0.50;   // 0.2..1.0 (forced trade risk reduction)
+input bool     InpForceTradeNeedsTrend      = true;   // force trade only with trend confirmation
 
 input group "==== OPTIMIZER TARGETS ===="
 input double   InpOptMinProfitFactor        = 1.50;   // Custom max floor
@@ -91,6 +93,8 @@ input double   InpTP_RR                     = 2.2;
 input double   InpTrailATR_Mult             = 1.2;
 input double   InpBreakEvenATR              = 1.0;
 input int      InpMaxHoldBars               = 280;    // 0 = disabled
+input bool     InpStrictProtectionMode      = true;   // reject/close unprotected entries
+input int      InpMaxUnprotectedSeconds     = 15;     // emergency close if no SL/TP
 
 input group "==== SESSION FILTER ===="
 input ENUM_SESSION_FILTER InpSessionFilter  = SESSION_ALL;
@@ -467,10 +471,11 @@ bool BuildStops(bool isBuy, double &sl, double &tp, double &slDist)
    return (sl > 0 && tp > 0 && slDist > 0);
 }
 
-bool SendOrder(bool isBuy, double lots, double sl, double tp, const string comment)
+bool SendOrder(bool isBuy, double lots, double sl, double tp, const string comment, bool forced)
 {
    lots = NormalizeVolume(lots);
    if(lots <= 0) return false;
+   string modeTag = forced ? "FORCED" : "SCORE";
    
    // Use numeric retcodes for maximum MT5 build compatibility.
    const uint RC_REQUOTE       = 10004;
@@ -484,7 +489,7 @@ bool SendOrder(bool isBuy, double lots, double sl, double tp, const string comme
                    : trade.Sell(lots, _Symbol, 0.0, sl, tp, comment);
    if(ok)
    {
-      if(InpLogTrades) PrintFormat("OPEN %s lots=%.2f sl=%.2f tp=%.2f", comment, lots, sl, tp);
+      if(InpLogTrades) PrintFormat("OPEN[%s] %s lots=%.2f sl=%.2f tp=%.2f", modeTag, comment, lots, sl, tp);
       return true;
    }
 
@@ -517,12 +522,22 @@ bool SendOrder(bool isBuy, double lots, double sl, double tp, const string comme
       rc == RC_PRICE_CHANGED ||
       rc == RC_INVALID_PRICE)
    {
+      if(InpStrictProtectionMode) return false;
+      
       ok = isBuy ? trade.Buy(lots, _Symbol, 0.0, 0.0, 0.0, comment)
                  : trade.Sell(lots, _Symbol, 0.0, 0.0, 0.0, comment);
       if(ok)
       {
          ulong tk = FindNewestPositionTicket(comment);
-         if(tk > 0) trade.PositionModify(tk, sl, tp); // best effort
+         if(tk > 0)
+         {
+            bool modOk = trade.PositionModify(tk, sl, tp);
+            if(!modOk && InpStrictProtectionMode)
+            {
+               trade.PositionClose(tk);
+               return false;
+            }
+         }
          if(InpLogTrades) PrintFormat("OPEN FALLBACK %s lots=%.2f", comment, lots);
          return true;
       }
@@ -548,14 +563,21 @@ bool OpenTradeBySignal(int direction, double score, bool forced)
    if(!BuildStops(isBuy, sl, tp, slDist)) return false;
 
    double confidence = MathMin(1.0, MathAbs(score) / 100.0);
-   if(forced) confidence = MathMax(confidence, 0.45);
+   if(forced)
+   {
+      bool bullTrend = (g_emaFast1 > g_emaSlow1 && g_close1 > g_emaTrend1 && g_adx1 >= InpADXTrendMin);
+      bool bearTrend = (g_emaFast1 < g_emaSlow1 && g_close1 < g_emaTrend1 && g_adx1 >= InpADXTrendMin);
+      if(InpForceTradeNeedsTrend && !((direction > 0 && bullTrend) || (direction < 0 && bearTrend)))
+         return false;
+      confidence = MathMax(0.20, confidence * MathMax(0.20, MathMin(1.0, InpForceRiskScale)));
+   }
 
    double lots = CalcLotsByRisk(isBuy, slDist, confidence);
    if(lots < g_minLot) return false;
 
    string tag = forced ? "FORCED" : "SCORE";
    string cmt = InpTradeComment + "_" + (isBuy ? "BUY_" : "SELL_") + tag;
-   if(SendOrder(isBuy, lots, sl, tp, cmt))
+   if(SendOrder(isBuy, lots, sl, tp, cmt, forced))
    {
       g_lastEntryTime = TimeCurrent();
       g_barsSinceTrade = 0;
@@ -595,6 +617,14 @@ void ManagePositions()
       double openPrice = posInfo.PriceOpen();
       double sl = posInfo.StopLoss();
       double tp = posInfo.TakeProfit();
+      if((sl <= 0.0 || tp <= 0.0) && InpStrictProtectionMode)
+      {
+         if((int)(TimeCurrent() - posInfo.Time()) >= MathMax(1, InpMaxUnprotectedSeconds))
+         {
+            trade.PositionClose(ticket);
+            continue;
+         }
+      }
 
       // Time-based exit to keep system rotating
       if(InpMaxHoldBars > 0)
@@ -671,7 +701,7 @@ void UpdateRiskState(bool &allowEntries, double &ddTotal, double &ddDaily)
 int OnInit()
 {
    Print("===========================================");
-   Print(" GS QUANT ARCHITECT v4.01 - REBUILT INIT");
+   Print(" GS QUANT ARCHITECT v4.02 - REBUILT INIT");
    Print("===========================================");
 
    trade.SetExpertMagicNumber(InpMagicNumber);
