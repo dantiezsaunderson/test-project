@@ -467,6 +467,14 @@ bool SendOrder(bool isBuy, double lots, double sl, double tp, const string comme
 {
    lots = NormalizeVolume(lots);
    if(lots <= 0) return false;
+   
+   // Use numeric retcodes for maximum MT5 build compatibility.
+   const uint RC_REQUOTE       = 10004;
+   const uint RC_INVALID_PRICE = 10015;
+   const uint RC_INVALID_STOPS = 10016;
+   const uint RC_PRICE_CHANGED = 10020;
+   const uint RC_PRICE_OFF     = 10021;
+   const uint RC_INVALID_FILL  = 10030;
 
    bool ok = isBuy ? trade.Buy(lots, _Symbol, 0.0, sl, tp, comment)
                    : trade.Sell(lots, _Symbol, 0.0, sl, tp, comment);
@@ -481,7 +489,7 @@ bool SendOrder(bool isBuy, double lots, double sl, double tp, const string comme
       PrintFormat("ENTRY FAIL %s rc=%u %s | bid=%.2f ask=%.2f stops=%d freeze=%d",
                   comment, rc, trade.ResultRetcodeDescription(), g_bid, g_ask, g_stopsLevelPts, g_freezeLevelPts);
 
-   if(rc == TRADE_RETCODE_INVALID_FILL)
+   if(rc == RC_INVALID_FILL)
    {
       ENUM_ORDER_TYPE_FILLING fills[3] = {ORDER_FILLING_FOK, ORDER_FILLING_IOC, ORDER_FILLING_RETURN};
       for(int i = 0; i < 3; i++)
@@ -499,11 +507,11 @@ bool SendOrder(bool isBuy, double lots, double sl, double tp, const string comme
       trade.SetTypeFillingBySymbol(_Symbol);
    }
 
-   if(rc == TRADE_RETCODE_INVALID_STOPS ||
-      rc == TRADE_RETCODE_REQUOTE ||
-      rc == TRADE_RETCODE_PRICE_OFF ||
-      rc == TRADE_RETCODE_PRICE_CHANGED ||
-      rc == TRADE_RETCODE_INVALID_PRICE)
+   if(rc == RC_INVALID_STOPS ||
+      rc == RC_REQUOTE ||
+      rc == RC_PRICE_OFF ||
+      rc == RC_PRICE_CHANGED ||
+      rc == RC_INVALID_PRICE)
    {
       ok = isBuy ? trade.Buy(lots, _Symbol, 0.0, 0.0, 0.0, comment)
                  : trade.Sell(lots, _Symbol, 0.0, 0.0, 0.0, comment);
