@@ -5,7 +5,7 @@
 //+------------------------------------------------------------------+
 #property copyright "GS Quant Desk - Systematic Alpha Division"
 #property link      "https://github.com/gs-quant"
-#property version   "3.10"
+#property version   "3.11"
 #property description "Multi-Strategy Quantitative EA implementing 8 alpha strategies"
 #property description "with institutional risk management, regime detection, and"
 #property description "adaptive position sizing. Optimized for XAU/USD, universal deployment."
@@ -246,7 +246,7 @@ bool IsNewBarTF(ENUM_TIMEFRAMES tf, datetime &lastBarTime)
 int OnInit()
 {
    Print("═══════════════════════════════════════════");
-   Print("  GS QUANT ARCHITECT v3.10 INIT");
+   Print("  GS QUANT ARCHITECT v3.11 INIT");
    Print("═══════════════════════════════════════════");
    
    trade.SetExpertMagicNumber(InpMagicNumber);
@@ -1207,7 +1207,7 @@ void DrawDashboard(double dd, double dailyPnl)
 {
    int x=10, y=30, h=18;
    string p="GS_";
-   DL(p+"h",x,y,"═══ GS QUANT v3.10 ═══",clrGold,10); y+=h+3;
+   DL(p+"h",x,y,"═══ GS QUANT v3.11 ═══",clrGold,10); y+=h+3;
    DL(p+"e",x,y,StringFormat("Eq:$%.0f DD:%.1f%% Day:%.1f%%",accInfo.Equity(),dd,dailyPnl),
       dailyPnl>=0?clrLime:clrRed,9); y+=h;
    DL(p+"r",x,y,StringFormat("Regime:%s Trend:%.2f ATR:%.2f",EnumToString(g_regime),g_trendStr,g_atr),clrWhite,9); y+=h;
