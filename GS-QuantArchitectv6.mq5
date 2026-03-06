@@ -501,7 +501,7 @@ bool SendOrder(bool isBuy, double lots, double sl, double tp, const string comme
 
    if(rc == TRADE_RETCODE_INVALID_STOPS ||
       rc == TRADE_RETCODE_REQUOTE ||
-      rc == TRADE_RETCODE_OFFQUOTES ||
+      rc == TRADE_RETCODE_PRICE_OFF ||
       rc == TRADE_RETCODE_PRICE_CHANGED ||
       rc == TRADE_RETCODE_INVALID_PRICE)
    {
