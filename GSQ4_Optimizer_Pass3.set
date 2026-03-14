@@ -1,0 +1,77 @@
+; GS Quant Architect v4.00 - Optimizer Pass 3 (Market Conditions)
+; Load in MT5 Strategy Tester -> Inputs -> Load
+; Entry + exit engine is LOCKED from pass-1/pass-2 winners.
+; Only market-condition filters are optimized in this pass (marked with ...||Y).
+;
+; Format:
+; parameter=value||start||step||stop||optimize
+
+InpMagicNumber=20260306||20260306||1||20260306||N
+InpTradeComment=GSQ4_OPT_P3||GSQ4_OPT_P3||0||GSQ4_OPT_P3||N
+InpDebugMode=false||false||0||true||N
+InpLogTrades=false||false||0||true||N
+
+; ===== Pass 3 optimization core (market conditions) =====
+; InpSignalTF enum in this pass: 15=M15, 30=M30
+InpSignalTF=15||15||15||30||Y
+InpWarmupBars=20||20||1||20||N
+
+InpMaxSlippage=30||30||1||30||N
+; spread points (0=off)
+InpSpreadFilterPoints=0.0||0.0||5.0||25.0||Y
+InpMinSecondsBetweenEntries=30||30||1||30||N
+InpAllowBuy=true||true||0||true||N
+InpAllowSell=true||true||0||true||N
+InpOnePositionPerDirection=true||true||0||true||N
+InpMaxOpenPositions=2||2||1||2||N
+
+InpRiskLevel=1||1||0||1||N
+InpFixedLot=0.01||0.01||0.00||0.01||N
+InpMaxDailyDrawdown=6.0||6.0||0.1||6.0||N
+InpMaxTotalDrawdown=20.0||20.0||0.1||20.0||N
+
+InpEnableTrend=true||true||0||true||N
+InpEnableMeanReversion=true||true||0||true||N
+InpEnableBreakout=true||true||0||true||N
+InpEnableMomentum=true||true||0||true||N
+InpEnableVolatility=true||true||0||true||N
+
+InpATRPeriod=14||14||1||14||N
+InpEMAFast=21||21||1||21||N
+InpEMASlow=55||55||1||55||N
+InpEMATrend=200||200||1||200||N
+InpRSIPeriod=14||14||1||14||N
+InpRSIOverbought=68.0||68.0||0.1||68.0||N
+InpRSIOversold=32.0||32.0||0.1||32.0||N
+InpBBPeriod=20||20||1||20||N
+InpBBDev=2.0||2.0||0.1||2.0||N
+InpADXPeriod=14||14||1||14||N
+InpADXTrendMin=18.0||14.0||2.0||26.0||Y
+InpBreakoutLookback=24||16||4||40||Y
+InpATRFastPeriod=7||7||1||7||N
+InpATRSlowPeriod=50||50||1||50||N
+
+; ===== Locked entries from pass-1 cluster =====
+InpEntryScoreBase=45.0||45.0||1.0||45.0||N
+InpEntryScoreMin=22.0||22.0||1.0||22.0||N
+InpThresholdDecayBars=12||12||1||12||N
+InpThresholdDecayStep=5.0||5.0||0.1||5.0||N
+InpGuaranteeActivity=true||true||0||true||N
+InpForceTradeBars=8||8||1||8||N
+InpTP_RR=2.0||2.0||0.1||2.0||N
+
+; ===== Locked exits from pass-2 cluster =====
+InpSL_ATR_Mult=1.8||1.8||0.1||1.8||N
+InpTrailATR_Mult=1.4||1.4||0.1||1.4||N
+InpBreakEvenATR=1.0||1.0||0.1||1.0||N
+InpMaxHoldBars=280||280||10||280||N
+
+; Session enum: 0=ALL,1=LONDON,2=NEWYORK,3=OVERLAP,4=ASIAN,5=NO_ASIAN
+InpSessionFilter=0||0||1||5||Y
+InpLondonStart=8||8||1||8||N
+InpLondonEnd=16||16||1||16||N
+InpNYStart=13||13||1||13||N
+InpNYEnd=21||21||1||21||N
+InpAsianStart=0||0||1||0||N
+InpAsianEnd=8||8||1||8||N
+InpNoTradeFriday=false||false||0||true||N
