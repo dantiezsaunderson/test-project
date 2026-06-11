@@ -1,0 +1,2 @@
+level_id,type,price,created_at,expires_at,quality_score
+TEST_PDH_2400,MANUAL,2400.00,2025-06-10 09:40:00,2025-06-10 20:00:00,0.90
