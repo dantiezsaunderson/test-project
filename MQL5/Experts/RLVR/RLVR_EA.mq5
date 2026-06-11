@@ -1,8 +1,14 @@
 //+------------------------------------------------------------------+
-//| RLVR_EA.mq5 — Reclaimed Liquidity Void Reset (full build v1)     |
+//| RLVR_EA.mq5 — modular entry (requires MQL5/Include/RLVR/)        |
+//|                                                                  |
+//| For a single-file compile with no Include folder, use instead:     |
+//|   RLVR_AllInOne.mq5                                              |
+//|                                                                  |
+//| Regenerate AllInOne after editing modules:                       |
+//|   python3 MQL5/scripts/merge_all_in_one.py                         |
 //+------------------------------------------------------------------+
 #property copyright "RLVR"
-#property version   "2.00"
+#property version   "2.01"
 #property strict
 
 #include <RLVR/Config.mqh>
@@ -11,12 +17,10 @@
 #include <RLVR/Telemetry.mqh>
 #include <RLVR/AtrUtils.mqh>
 
-//--- mode
 input bool   InpDryRun              = true;
 input ulong  InpMagic               = RLVR_DEFAULT_MAGIC;
 input string InpTelemetryFile       = "RLVR_events.csv";
 
-//--- levels
 input bool   InpAutoPdhPdl          = true;
 input bool   InpAutoSessionLevels   = true;
 input bool   InpAutoRoundLevels     = true;
@@ -25,19 +29,16 @@ input double InpManualLevelPrice    = 2400.0;
 input string InpManualLevelId       = "MANUAL_LEVEL";
 input double InpManualQuality       = 0.90;
 
-//--- structure
 input bool   InpReclaimBodyFilter   = true;
 input int    InpAtrPeriod           = 14;
 input double InpBaselineSpread      = 0.30;
 
-//--- risk (prop-style defaults)
 input double InpRiskPerBasket       = 0.0125;
 input double InpBasketDdLimit       = 0.0125;
 input double InpDailyDdLimit        = 0.025;
 input double InpWeeklyDdLimit       = 0.05;
 input double InpMarginLimit         = 0.25;
 
-//--- session / regime
 input bool   InpAllowAsiaTrading    = false;
 input int    InpLiquidStartHour     = 7;
 input int    InpLiquidEndHour       = 21;
@@ -109,9 +110,8 @@ int OnInit()
 
    EventSetTimer(1);
 
-   Print("RLVR v2 started | dry_run=", InpDryRun,
-         " | magic=", InpMagic,
-         " | telemetry=", InpTelemetryFile);
+   Print("RLVR modular build | dry_run=", InpDryRun,
+         " | For single-file use RLVR_AllInOne.mq5");
    return INIT_SUCCEEDED;
   }
 
@@ -120,14 +120,10 @@ void OnDeinit(const int reason)
   {
    EventKillTimer();
    g_telemetry.Close();
-   Print("RLVR stopped. reason=", reason);
   }
 
 //+------------------------------------------------------------------+
-void OnTimer()
-  {
-   g_controller.OnTimer();
-  }
+void OnTimer() { g_controller.OnTimer(); }
 
 //+------------------------------------------------------------------+
 void OnTick()
@@ -135,7 +131,6 @@ void OnTick()
    const datetime bar_time = iTime(_Symbol, PERIOD_M5, 0);
    if(bar_time == 0 || bar_time == g_last_m5_bar_time)
       return;
-
    g_last_m5_bar_time = bar_time;
 
    MqlRates bars[];
@@ -149,11 +144,8 @@ void OnTick()
    const double bid     = SymbolInfoDouble(_Symbol, SYMBOL_BID);
    const double ask     = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
    const double spread  = ask - bid;
-
    if(atr_m5 <= 0.0)
       return;
 
    g_controller.OnNewM5Bar(bars[0], atr_m5, bid, ask, spread, atr_m15, atr_h1);
   }
-
-//+------------------------------------------------------------------+

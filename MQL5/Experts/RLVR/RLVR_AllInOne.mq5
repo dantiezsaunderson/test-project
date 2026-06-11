@@ -572,7 +572,7 @@ public:
 
       if(m_dry_run)
         {
-         ticket_out = (ulong)(TimeCurrent() + vol * 1000.0);
+         ticket_out = (ulong)MathRound((double)TimeCurrent() + vol * 1000.0);
          fill_price_out = (direction == RLVR_FADE_BUY)
                           ? SymbolInfoDouble(m_symbol, SYMBOL_ASK)
                           : SymbolInfoDouble(m_symbol, SYMBOL_BID);
@@ -791,7 +791,7 @@ public:
       return true;
      }
 
-   const SRiskConfig &Config() const { return m_cfg; }
+   SRiskConfig Config() const { return m_cfg; }
 
    void AddClosedPnl(const double pnl) { m_daily_closed_pnl += pnl; }
   };
@@ -853,8 +853,30 @@ public:
       return m_basket.active;
      }
 
-   SRlvrBasket &Basket() { return m_basket; }
-   const SRlvrBasket &Basket() const { return m_basket; }
+   SRlvrBasket GetBasket() const { return m_basket; }
+
+   void SetState(const ENUM_RLVR_BASKET_STATE state)
+     {
+      m_basket.state = state;
+     }
+
+   void ApplyPartialClose()
+     {
+      m_basket.partial_done = true;
+      m_basket.trail_active = true;
+      m_basket.trail_stop   = m_basket.vwap_price;
+     }
+
+   void UpdateTrailStop(const double atr_m5, const double trail_buffer_atr)
+     {
+      if(!m_basket.trail_active)
+         return;
+      const double buffer = trail_buffer_atr * atr_m5;
+      if(m_basket.direction == RLVR_FADE_SELL)
+         m_basket.trail_stop = MathMin(m_basket.trail_stop, m_basket.vwap_price + buffer);
+      else
+         m_basket.trail_stop = MathMax(m_basket.trail_stop, m_basket.vwap_price - buffer);
+     }
 
    void ClearBasket()
      {
@@ -1480,7 +1502,7 @@ public:
                        const bool recovery_forbidden,
                        SReplayEvent &event_out)
      {
-      SRlvrBasket &basket = basket_mgr.Basket();
+      SRlvrBasket basket = basket_mgr.GetBasket();
       if(!basket.active)
          return false;
       if(recovery_forbidden)
@@ -1515,7 +1537,7 @@ public:
          return false;
 
       basket_mgr.AddLeg(ticket, next_rung, new_lots, fill);
-      basket.state = RLVR_BASKET_RESCUE_ACTIVE;
+      basket_mgr.SetState(RLVR_BASKET_RESCUE_ACTIVE);
 
       event_out.timestamp     = bar.time;
       event_out.event_type    = StringFormat("R%d_ADD", next_rung);
@@ -1557,13 +1579,14 @@ public:
       m_structure = structure;
      }
 
-   bool PartialAtMidpoint(SRlvrBasket &basket,
+   bool PartialAtMidpoint(CBasketManager &basket_mgr,
                           const MqlRates &bar,
                           const double floating_pnl,
                           const double basket_dd_limit,
                           CRLVRTradeUtils &trade,
                           SReplayEvent &event_out)
      {
+      SRlvrBasket basket = basket_mgr.GetBasket();
       if(!basket.active || basket.partial_done)
          return false;
 
@@ -1605,9 +1628,7 @@ public:
            }
         }
 
-      basket.partial_done = true;
-      basket.trail_active = true;
-      basket.trail_stop   = basket.vwap_price;
+      basket_mgr.ApplyPartialClose();
 
       event_out.timestamp   = bar.time;
       event_out.event_type  = "PARTIAL_CLOSE";
@@ -1638,7 +1659,7 @@ public:
       return true;
      }
 
-   bool TrailStopHit(SRlvrBasket &basket,
+   bool TrailStopHit(const SRlvrBasket basket,
                      const double bid,
                      const double ask,
                      SReplayEvent &event_out) const
@@ -1667,15 +1688,9 @@ public:
       return false;
      }
 
-   void UpdateTrail(SRlvrBasket &basket, const double atr_m5)
+   void UpdateTrail(CBasketManager &basket_mgr, const double atr_m5)
      {
-      if(!basket.trail_active)
-         return;
-      const double buffer = m_cfg.trail_buffer_atr * atr_m5;
-      if(basket.direction == RLVR_FADE_SELL)
-         basket.trail_stop = MathMin(basket.trail_stop, basket.vwap_price + buffer);
-      else
-         basket.trail_stop = MathMax(basket.trail_stop, basket.vwap_price - buffer);
+      basket_mgr.UpdateTrailStop(atr_m5, m_cfg.trail_buffer_atr);
      }
 
    bool TimeScratchExit(const SRlvrBasket &basket,
@@ -1702,123 +1717,6 @@ public:
      }
   };
 // ===== END ExitManager =====
-
-// ===== BEGIN AntiBlowup =====
-//+------------------------------------------------------------------+
-//| AntiBlowup.mqh — spec §15                                        |
-//+------------------------------------------------------------------+
-
-
-enum ENUM_RLVR_CB_REASON
-  {
-   RLVR_CB_NONE = 0,
-   RLVR_CB_BASKET_DD,
-   RLVR_CB_DAILY_DD,
-   RLVR_CB_WEEKLY_DD,
-   RLVR_CB_MARGIN,
-   RLVR_CB_SESSION_FAILURES,
-   RLVR_CB_INVALIDATION
-  };
-
-class CAntiBlowup
-  {
-private:
-   SAntiBlowupConfig m_cfg;
-   int               m_session_failures;
-   int               m_session_day_key;
-   bool              m_day_halt;
-   bool              m_week_halt;
-   datetime          m_flatten_started;
-
-public:
-            CAntiBlowup(): m_session_failures(0), m_session_day_key(-1),
-                           m_day_halt(false), m_week_halt(false), m_flatten_started(0) {}
-
-   void Init(const SAntiBlowupConfig &cfg) { m_cfg = cfg; }
-
-   int SessionDayKey() const
-     {
-      MqlDateTime dt;
-      TimeToStruct(TimeCurrent(), dt);
-      return dt.year * 10000 + dt.mon * 100 + dt.day;
-     }
-
-   void ResetSessionIfNeeded()
-     {
-      const int key = SessionDayKey();
-      if(key != m_session_day_key)
-        {
-         m_session_day_key  = key;
-         m_session_failures = 0;
-         m_day_halt         = false;
-        }
-     }
-
-   bool DayHalt() const { return m_day_halt; }
-   bool WeekHalt() const { return m_week_halt; }
-
-   ENUM_RLVR_CB_REASON Check(const CRiskManager &risk,
-                             const double floating_pnl) const
-     {
-      if(risk.BasketDdBreached(floating_pnl))
-         return RLVR_CB_BASKET_DD;
-      if(risk.DailyDdBreached(floating_pnl))
-         return RLVR_CB_DAILY_DD;
-      if(risk.WeeklyDdBreached(floating_pnl))
-         return RLVR_CB_WEEKLY_DD;
-      if(risk.MarginBreached())
-         return RLVR_CB_MARGIN;
-      if(m_session_failures >= m_cfg.max_session_failures_before_halt)
-         return RLVR_CB_SESSION_FAILURES;
-      return RLVR_CB_NONE;
-     }
-
-   int CooldownSeconds(const ENUM_RLVR_CB_REASON reason,
-                       const bool emergency) const
-     {
-      if(reason == RLVR_CB_DAILY_DD)
-         return 24 * 3600;
-      if(reason == RLVR_CB_WEEKLY_DD)
-         return 7 * 24 * 3600;
-      if(emergency)
-         return m_cfg.cooldown_after_emergency_seconds;
-      return m_cfg.cooldown_after_normal_exit_seconds;
-     }
-
-   bool FlattenAll(CRLVRTradeUtils &trade,
-                   CBasketManager &basket_mgr,
-                   CRegimeFilter &regime,
-                   const ENUM_RLVR_CB_REASON reason,
-                   SReplayEvent &event_out)
-     {
-      double closed = 0.0;
-      const int n = trade.CloseAllByMagic(closed);
-      basket_mgr.ClearBasket();
-
-      if(reason == RLVR_CB_DAILY_DD)
-         m_day_halt = true;
-      if(reason == RLVR_CB_WEEKLY_DD)
-         m_week_halt = true;
-      if(reason == RLVR_CB_INVALIDATION ||
-         reason == RLVR_CB_BASKET_DD ||
-         reason == RLVR_CB_MARGIN)
-         m_session_failures++;
-
-      const bool emergency = (reason != RLVR_CB_NONE);
-      regime.SetCooldownUntil(TimeCurrent() + CooldownSeconds(reason, emergency));
-
-      event_out.timestamp  = TimeCurrent();
-      event_out.event_type = "FLATTEN";
-      event_out.message    = StringFormat("AntiBlowup flatten reason=%d closed=%d", (int)reason, n);
-      return true;
-     }
-
-   void RecordDefensiveShutdown()
-     {
-      m_session_failures++;
-     }
-  };
-// ===== END AntiBlowup =====
 
 // ===== BEGIN RegimeFilter =====
 //+------------------------------------------------------------------+
@@ -1941,6 +1839,123 @@ public:
      }
   };
 // ===== END RegimeFilter =====
+
+// ===== BEGIN AntiBlowup =====
+//+------------------------------------------------------------------+
+//| AntiBlowup.mqh — spec §15                                        |
+//+------------------------------------------------------------------+
+
+
+enum ENUM_RLVR_CB_REASON
+  {
+   RLVR_CB_NONE = 0,
+   RLVR_CB_BASKET_DD,
+   RLVR_CB_DAILY_DD,
+   RLVR_CB_WEEKLY_DD,
+   RLVR_CB_MARGIN,
+   RLVR_CB_SESSION_FAILURES,
+   RLVR_CB_INVALIDATION
+  };
+
+class CAntiBlowup
+  {
+private:
+   SAntiBlowupConfig m_cfg;
+   int               m_session_failures;
+   int               m_session_day_key;
+   bool              m_day_halt;
+   bool              m_week_halt;
+   datetime          m_flatten_started;
+
+public:
+            CAntiBlowup(): m_session_failures(0), m_session_day_key(-1),
+                           m_day_halt(false), m_week_halt(false), m_flatten_started(0) {}
+
+   void Init(const SAntiBlowupConfig &cfg) { m_cfg = cfg; }
+
+   int SessionDayKey() const
+     {
+      MqlDateTime dt;
+      TimeToStruct(TimeCurrent(), dt);
+      return dt.year * 10000 + dt.mon * 100 + dt.day;
+     }
+
+   void ResetSessionIfNeeded()
+     {
+      const int key = SessionDayKey();
+      if(key != m_session_day_key)
+        {
+         m_session_day_key  = key;
+         m_session_failures = 0;
+         m_day_halt         = false;
+        }
+     }
+
+   bool DayHalt() const { return m_day_halt; }
+   bool WeekHalt() const { return m_week_halt; }
+
+   ENUM_RLVR_CB_REASON Check(const CRiskManager &risk,
+                             const double floating_pnl) const
+     {
+      if(risk.BasketDdBreached(floating_pnl))
+         return RLVR_CB_BASKET_DD;
+      if(risk.DailyDdBreached(floating_pnl))
+         return RLVR_CB_DAILY_DD;
+      if(risk.WeeklyDdBreached(floating_pnl))
+         return RLVR_CB_WEEKLY_DD;
+      if(risk.MarginBreached())
+         return RLVR_CB_MARGIN;
+      if(m_session_failures >= m_cfg.max_session_failures_before_halt)
+         return RLVR_CB_SESSION_FAILURES;
+      return RLVR_CB_NONE;
+     }
+
+   int CooldownSeconds(const ENUM_RLVR_CB_REASON reason,
+                       const bool emergency) const
+     {
+      if(reason == RLVR_CB_DAILY_DD)
+         return 24 * 3600;
+      if(reason == RLVR_CB_WEEKLY_DD)
+         return 7 * 24 * 3600;
+      if(emergency)
+         return m_cfg.cooldown_after_emergency_seconds;
+      return m_cfg.cooldown_after_normal_exit_seconds;
+     }
+
+   bool FlattenAll(CRLVRTradeUtils &trade,
+                   CBasketManager &basket_mgr,
+                   CRegimeFilter &regime,
+                   const ENUM_RLVR_CB_REASON reason,
+                   SReplayEvent &event_out)
+     {
+      double closed = 0.0;
+      const int n = trade.CloseAllByMagic(closed);
+      basket_mgr.ClearBasket();
+
+      if(reason == RLVR_CB_DAILY_DD)
+         m_day_halt = true;
+      if(reason == RLVR_CB_WEEKLY_DD)
+         m_week_halt = true;
+      if(reason == RLVR_CB_INVALIDATION ||
+         reason == RLVR_CB_BASKET_DD ||
+         reason == RLVR_CB_MARGIN)
+         m_session_failures++;
+
+      const bool emergency = (reason != RLVR_CB_NONE);
+      regime.SetCooldownUntil(TimeCurrent() + CooldownSeconds(reason, emergency));
+
+      event_out.timestamp  = TimeCurrent();
+      event_out.event_type = "FLATTEN";
+      event_out.message    = StringFormat("AntiBlowup flatten reason=%d closed=%d", (int)reason, n);
+      return true;
+     }
+
+   void RecordDefensiveShutdown()
+     {
+      m_session_failures++;
+     }
+  };
+// ===== END AntiBlowup =====
 
 // ===== BEGIN LevelsEngine =====
 //+------------------------------------------------------------------+
@@ -2412,7 +2427,7 @@ private:
         }
 
       m_ea_state = RLVR_EA_BASKET_ACTIVE;
-      SRlvrBasket basket = m_basket.Basket();
+      SRlvrBasket basket = m_basket.GetBasket();
       double floating = m_basket.FloatingPnl(m_trade.IsDryRun());
 
       ENUM_RLVR_CB_REASON cb = m_antiblowup.Check(m_risk, floating);
@@ -2452,28 +2467,29 @@ private:
          m_soft_invalidation = true;
 
       SReplayEvent ev;
-      if(m_exit_mgr.PartialAtMidpoint(m_basket.Basket(), bar, floating,
+      if(m_exit_mgr.PartialAtMidpoint(m_basket, bar, floating,
                                       m_risk.Config().basket_dd_limit,
                                       m_trade, ev))
         {
          Emit(ev);
-         basket = m_basket.Basket();
+         basket = m_basket.GetBasket();
         }
 
-      m_exit_mgr.UpdateTrail(m_basket.Basket(), atr_m5);
-      if(m_exit_mgr.TrailStopHit(m_basket.Basket(), bid, ask, ev))
+      m_exit_mgr.UpdateTrail(m_basket, atr_m5);
+      basket = m_basket.GetBasket();
+      if(m_exit_mgr.TrailStopHit(basket, bid, ask, ev))
         {
          CloseBasketNormal("TRAIL_EXIT", ev.message);
          return;
         }
 
-      if(m_exit_mgr.BasketTakeProfit(m_basket.Basket(), atr_m5, floating, ev))
+      if(m_exit_mgr.BasketTakeProfit(basket, atr_m5, floating, ev))
         {
          CloseBasketNormal("BASKET_TP", ev.message);
          return;
         }
 
-      if(m_exit_mgr.TimeScratchExit(m_basket.Basket(), floating,
+      if(m_exit_mgr.TimeScratchExit(basket, floating,
                                       m_risk.Config().basket_dd_limit, ev))
         {
          CloseBasketNormal("TIME_EXIT", ev.message);
@@ -2484,7 +2500,7 @@ private:
         {
          SLiquidityLevel lvl = m_tracked_level;
          const bool forbidden = m_recovery_engine.RecoveryForbidden(
-            lvl, m_basket.Basket(), bar, atr_m5, spread,
+            lvl, basket, bar, atr_m5, spread,
             m_soft_invalidation, m_risk.DailyDdBreached(floating));
          if(m_recovery_engine.TryAddNextRung(lvl, m_basket, bar, atr_m5, spread,
                                              m_trade, forbidden, ev))
@@ -2496,9 +2512,9 @@ private:
 
       floating = m_basket.FloatingPnl(m_trade.IsDryRun());
       if(floating < 0.0)
-         m_basket.Basket().state = RLVR_BASKET_CONTROLLED_ADVERSE;
+         m_basket.SetState(RLVR_BASKET_CONTROLLED_ADVERSE);
       else
-         m_basket.Basket().state = RLVR_BASKET_PROFIT_COMPRESSION;
+         m_basket.SetState(RLVR_BASKET_PROFIT_COMPRESSION);
      }
 
    void ProcessStructureScan(const MqlRates &bar,
@@ -2709,16 +2725,20 @@ class CRLVRStateMachine : public CRLVRController {};
 //| EA ENTRY POINT
 //+------------------------------------------------------------------+
 //+------------------------------------------------------------------+
-//| RLVR_EA.mq5 — Reclaimed Liquidity Void Reset (full build v1)     |
+//| RLVR_EA.mq5 — modular entry (requires MQL5/Include/RLVR/)        |
+//|                                                                  |
+//| For a single-file compile with no Include folder, use instead:     |
+//|   RLVR_AllInOne.mq5                                              |
+//|                                                                  |
+//| Regenerate AllInOne after editing modules:                       |
+//|   python3 MQL5/scripts/merge_all_in_one.py                         |
 //+------------------------------------------------------------------+
 
 
-//--- mode
 input bool   InpDryRun              = true;
 input ulong  InpMagic               = RLVR_DEFAULT_MAGIC;
 input string InpTelemetryFile       = "RLVR_events.csv";
 
-//--- levels
 input bool   InpAutoPdhPdl          = true;
 input bool   InpAutoSessionLevels   = true;
 input bool   InpAutoRoundLevels     = true;
@@ -2727,19 +2747,16 @@ input double InpManualLevelPrice    = 2400.0;
 input string InpManualLevelId       = "MANUAL_LEVEL";
 input double InpManualQuality       = 0.90;
 
-//--- structure
 input bool   InpReclaimBodyFilter   = true;
 input int    InpAtrPeriod           = 14;
 input double InpBaselineSpread      = 0.30;
 
-//--- risk (prop-style defaults)
 input double InpRiskPerBasket       = 0.0125;
 input double InpBasketDdLimit       = 0.0125;
 input double InpDailyDdLimit        = 0.025;
 input double InpWeeklyDdLimit       = 0.05;
 input double InpMarginLimit         = 0.25;
 
-//--- session / regime
 input bool   InpAllowAsiaTrading    = false;
 input int    InpLiquidStartHour     = 7;
 input int    InpLiquidEndHour       = 21;
@@ -2811,9 +2828,8 @@ int OnInit()
 
    EventSetTimer(1);
 
-   Print("RLVR v2 started | dry_run=", InpDryRun,
-         " | magic=", InpMagic,
-         " | telemetry=", InpTelemetryFile);
+   Print("RLVR modular build | dry_run=", InpDryRun,
+         " | For single-file use RLVR_AllInOne.mq5");
    return INIT_SUCCEEDED;
   }
 
@@ -2822,14 +2838,10 @@ void OnDeinit(const int reason)
   {
    EventKillTimer();
    g_telemetry.Close();
-   Print("RLVR stopped. reason=", reason);
   }
 
 //+------------------------------------------------------------------+
-void OnTimer()
-  {
-   g_controller.OnTimer();
-  }
+void OnTimer() { g_controller.OnTimer(); }
 
 //+------------------------------------------------------------------+
 void OnTick()
@@ -2837,7 +2849,6 @@ void OnTick()
    const datetime bar_time = iTime(_Symbol, PERIOD_M5, 0);
    if(bar_time == 0 || bar_time == g_last_m5_bar_time)
       return;
-
    g_last_m5_bar_time = bar_time;
 
    MqlRates bars[];
@@ -2851,11 +2862,8 @@ void OnTick()
    const double bid     = SymbolInfoDouble(_Symbol, SYMBOL_BID);
    const double ask     = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
    const double spread  = ask - bid;
-
    if(atr_m5 <= 0.0)
       return;
 
    g_controller.OnNewM5Bar(bars[0], atr_m5, bid, ask, spread, atr_m15, atr_h1);
   }
-
-//+------------------------------------------------------------------+

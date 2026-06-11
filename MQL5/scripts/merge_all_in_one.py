@@ -22,8 +22,8 @@ MODULE_ORDER = [
     "Include/RLVR/EntryEngine.mqh",
     "Include/RLVR/RecoveryEngine.mqh",
     "Include/RLVR/ExitManager.mqh",
-    "Include/RLVR/AntiBlowup.mqh",
     "Include/RLVR/RegimeFilter.mqh",
+    "Include/RLVR/AntiBlowup.mqh",
     "Include/RLVR/LevelsEngine.mqh",
     "Include/RLVR/StateMachine.mqh",
 ]

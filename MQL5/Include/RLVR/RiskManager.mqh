@@ -151,7 +151,7 @@ public:
       return true;
      }
 
-   const SRiskConfig &Config() const { return m_cfg; }
+   SRiskConfig Config() const { return m_cfg; }
 
    void AddClosedPnl(const double pnl) { m_daily_closed_pnl += pnl; }
   };

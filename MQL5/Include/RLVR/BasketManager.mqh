@@ -56,8 +56,30 @@ public:
       return m_basket.active;
      }
 
-   SRlvrBasket &Basket() { return m_basket; }
-   const SRlvrBasket &Basket() const { return m_basket; }
+   SRlvrBasket GetBasket() const { return m_basket; }
+
+   void SetState(const ENUM_RLVR_BASKET_STATE state)
+     {
+      m_basket.state = state;
+     }
+
+   void ApplyPartialClose()
+     {
+      m_basket.partial_done = true;
+      m_basket.trail_active = true;
+      m_basket.trail_stop   = m_basket.vwap_price;
+     }
+
+   void UpdateTrailStop(const double atr_m5, const double trail_buffer_atr)
+     {
+      if(!m_basket.trail_active)
+         return;
+      const double buffer = trail_buffer_atr * atr_m5;
+      if(m_basket.direction == RLVR_FADE_SELL)
+         m_basket.trail_stop = MathMin(m_basket.trail_stop, m_basket.vwap_price + buffer);
+      else
+         m_basket.trail_stop = MathMax(m_basket.trail_stop, m_basket.vwap_price - buffer);
+     }
 
    void ClearBasket()
      {

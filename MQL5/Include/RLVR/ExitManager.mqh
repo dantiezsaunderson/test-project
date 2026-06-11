@@ -23,13 +23,14 @@ public:
       m_structure = structure;
      }
 
-   bool PartialAtMidpoint(SRlvrBasket &basket,
+   bool PartialAtMidpoint(CBasketManager &basket_mgr,
                           const MqlRates &bar,
                           const double floating_pnl,
                           const double basket_dd_limit,
                           CRLVRTradeUtils &trade,
                           SReplayEvent &event_out)
      {
+      SRlvrBasket basket = basket_mgr.GetBasket();
       if(!basket.active || basket.partial_done)
          return false;
 
@@ -71,9 +72,7 @@ public:
            }
         }
 
-      basket.partial_done = true;
-      basket.trail_active = true;
-      basket.trail_stop   = basket.vwap_price;
+      basket_mgr.ApplyPartialClose();
 
       event_out.timestamp   = bar.time;
       event_out.event_type  = "PARTIAL_CLOSE";
@@ -104,7 +103,7 @@ public:
       return true;
      }
 
-   bool TrailStopHit(SRlvrBasket &basket,
+   bool TrailStopHit(const SRlvrBasket basket,
                      const double bid,
                      const double ask,
                      SReplayEvent &event_out) const
@@ -133,15 +132,9 @@ public:
       return false;
      }
 
-   void UpdateTrail(SRlvrBasket &basket, const double atr_m5)
+   void UpdateTrail(CBasketManager &basket_mgr, const double atr_m5)
      {
-      if(!basket.trail_active)
-         return;
-      const double buffer = m_cfg.trail_buffer_atr * atr_m5;
-      if(basket.direction == RLVR_FADE_SELL)
-         basket.trail_stop = MathMin(basket.trail_stop, basket.vwap_price + buffer);
-      else
-         basket.trail_stop = MathMax(basket.trail_stop, basket.vwap_price - buffer);
+      basket_mgr.UpdateTrailStop(atr_m5, m_cfg.trail_buffer_atr);
      }
 
    bool TimeScratchExit(const SRlvrBasket &basket,

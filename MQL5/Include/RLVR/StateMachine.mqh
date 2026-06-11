@@ -114,7 +114,7 @@ private:
         }
 
       m_ea_state = RLVR_EA_BASKET_ACTIVE;
-      SRlvrBasket basket = m_basket.Basket();
+      SRlvrBasket basket = m_basket.GetBasket();
       double floating = m_basket.FloatingPnl(m_trade.IsDryRun());
 
       ENUM_RLVR_CB_REASON cb = m_antiblowup.Check(m_risk, floating);
@@ -154,28 +154,29 @@ private:
          m_soft_invalidation = true;
 
       SReplayEvent ev;
-      if(m_exit_mgr.PartialAtMidpoint(m_basket.Basket(), bar, floating,
+      if(m_exit_mgr.PartialAtMidpoint(m_basket, bar, floating,
                                       m_risk.Config().basket_dd_limit,
                                       m_trade, ev))
         {
          Emit(ev);
-         basket = m_basket.Basket();
+         basket = m_basket.GetBasket();
         }
 
-      m_exit_mgr.UpdateTrail(m_basket.Basket(), atr_m5);
-      if(m_exit_mgr.TrailStopHit(m_basket.Basket(), bid, ask, ev))
+      m_exit_mgr.UpdateTrail(m_basket, atr_m5);
+      basket = m_basket.GetBasket();
+      if(m_exit_mgr.TrailStopHit(basket, bid, ask, ev))
         {
          CloseBasketNormal("TRAIL_EXIT", ev.message);
          return;
         }
 
-      if(m_exit_mgr.BasketTakeProfit(m_basket.Basket(), atr_m5, floating, ev))
+      if(m_exit_mgr.BasketTakeProfit(basket, atr_m5, floating, ev))
         {
          CloseBasketNormal("BASKET_TP", ev.message);
          return;
         }
 
-      if(m_exit_mgr.TimeScratchExit(m_basket.Basket(), floating,
+      if(m_exit_mgr.TimeScratchExit(basket, floating,
                                       m_risk.Config().basket_dd_limit, ev))
         {
          CloseBasketNormal("TIME_EXIT", ev.message);
@@ -186,7 +187,7 @@ private:
         {
          SLiquidityLevel lvl = m_tracked_level;
          const bool forbidden = m_recovery_engine.RecoveryForbidden(
-            lvl, m_basket.Basket(), bar, atr_m5, spread,
+            lvl, basket, bar, atr_m5, spread,
             m_soft_invalidation, m_risk.DailyDdBreached(floating));
          if(m_recovery_engine.TryAddNextRung(lvl, m_basket, bar, atr_m5, spread,
                                              m_trade, forbidden, ev))
@@ -198,9 +199,9 @@ private:
 
       floating = m_basket.FloatingPnl(m_trade.IsDryRun());
       if(floating < 0.0)
-         m_basket.Basket().state = RLVR_BASKET_CONTROLLED_ADVERSE;
+         m_basket.SetState(RLVR_BASKET_CONTROLLED_ADVERSE);
       else
-         m_basket.Basket().state = RLVR_BASKET_PROFIT_COMPRESSION;
+         m_basket.SetState(RLVR_BASKET_PROFIT_COMPRESSION);
      }
 
    void ProcessStructureScan(const MqlRates &bar,

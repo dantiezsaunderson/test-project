@@ -92,7 +92,7 @@ public:
                        const bool recovery_forbidden,
                        SReplayEvent &event_out)
      {
-      SRlvrBasket &basket = basket_mgr.Basket();
+      SRlvrBasket basket = basket_mgr.GetBasket();
       if(!basket.active)
          return false;
       if(recovery_forbidden)
@@ -127,7 +127,7 @@ public:
          return false;
 
       basket_mgr.AddLeg(ticket, next_rung, new_lots, fill);
-      basket.state = RLVR_BASKET_RESCUE_ACTIVE;
+      basket_mgr.SetState(RLVR_BASKET_RESCUE_ACTIVE);
 
       event_out.timestamp     = bar.time;
       event_out.event_type    = StringFormat("R%d_ADD", next_rung);
