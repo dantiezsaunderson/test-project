@@ -103,7 +103,7 @@ public:
       return true;
      }
 
-   bool TrailStopHit(const SRlvrBasket basket,
+   bool TrailStopHit(const SRlvrBasket &basket,
                      const double bid,
                      const double ask,
                      SReplayEvent &event_out) const

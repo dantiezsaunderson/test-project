@@ -572,7 +572,7 @@ public:
 
       if(m_dry_run)
         {
-         ticket_out = (ulong)MathRound((double)TimeCurrent() + vol * 1000.0);
+         ticket_out = (ulong)TimeCurrent() + (ulong)MathRound(vol * 1000.0);
          fill_price_out = (direction == RLVR_FADE_BUY)
                           ? SymbolInfoDouble(m_symbol, SYMBOL_ASK)
                           : SymbolInfoDouble(m_symbol, SYMBOL_BID);
@@ -1659,7 +1659,7 @@ public:
       return true;
      }
 
-   bool TrailStopHit(const SRlvrBasket basket,
+   bool TrailStopHit(const SRlvrBasket &basket,
                      const double bid,
                      const double ask,
                      SReplayEvent &event_out) const
