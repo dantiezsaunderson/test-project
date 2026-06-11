@@ -1,78 +1,95 @@
-# RLVR MQL5 Dry-Run Scaffold
+# RLVR MQL5 — Full Build v2
 
-MetaTrader 5 implementation of RLVR structure detection (no orders in v1).
+**Reclaimed Liquidity Void Reset** — structure-first XAUUSD system with bounded recovery.
 
 ## Layout
 
 ```text
-MQL5/
-  Experts/RLVR/RLVR_EA.mq5
-  Include/RLVR/
-    Types.mqh
-    Config.mqh
-    AtrUtils.mqh
-    Telemetry.mqh
-    LevelsEngine.mqh
-    SweepDetector.mqh
-    ReclaimDetector.mqh
-    Invalidation.mqh
-    StateMachine.mqh
+Experts/RLVR/RLVR_EA.mq5
+Include/RLVR/
+  Types.mqh, Config.mqh
+  LevelsEngine.mqh
+  SweepDetector.mqh, ReclaimDetector.mqh, Invalidation.mqh
+  EntryEngine.mqh, RecoveryEngine.mqh, ExitManager.mqh
+  BasketManager.mqh, RiskManager.mqh, AntiBlowup.mqh, RegimeFilter.mqh
+  TradeUtils.mqh, StateMachine.mqh (CRLVRController)
+  Telemetry.mqh, AtrUtils.mqh
 ```
 
 ## Install
 
-1. Copy `MQL5/Experts/RLVR/` → terminal `MQL5/Experts/RLVR/`
-2. Copy `MQL5/Include/RLVR/` → terminal `MQL5/Include/RLVR/`
-3. Compile `RLVR_EA.mq5` in MetaEditor
+1. Copy `MQL5/Experts/RLVR/` and `MQL5/Include/RLVR/` into terminal data folder
+2. Compile `RLVR_EA.mq5` (requires `#include <Trade/Trade.mqh>`)
+3. Attach to **XAUUSD M5**
 
-## Dry-run usage
+## Modes
 
-1. Attach `RLVR_EA` to **XAUUSD M5** chart
-2. Ensure `InpDryRun = true` (default)
-3. Events write to `Common/Files/RLVR_events.csv`
-
-### Parity test (match Python harness)
-
-Strategy Tester settings:
-
-| Input | Value |
+| `InpDryRun` | Behavior |
 |---|---|
-| `InpDryRun` | true |
-| `InpAutoPdhPdl` | false |
-| `InpAutoSessionLevels` | false |
-| `InpAutoRoundLevels` | false |
-| `InpManualLevelEnable` | true |
-| `InpManualLevelPrice` | 2400.0 |
-| `InpManualLevelId` | TEST_PDH_2400 |
+| `true` (default) | Full state machine + CSV telemetry, **no real orders** |
+| `false` | Live market orders with magic `InpMagic` |
 
-Run tester on same period as `tools/rlvr_replay/fixtures/upside_sweep_reclaim_m5.csv`, then:
+**Start with dry-run on Strategy Tester**, then parity-check against Python harness before `InpDryRun=false`.
+
+## Pipeline (one basket max)
+
+```mermaid
+flowchart LR
+  LE[LevelsEngine] --> SW[Sweep]
+  SW --> RC[Reclaim]
+  RC --> R0[Entry R0]
+  R0 --> BK[Basket]
+  BK --> R1[R1-R4 Recovery]
+  BK --> EX[Exit Manager]
+  BK --> RK[Risk]
+  RK --> AB[AntiBlowup]
+```
+
+## Key inputs
+
+| Input | Default | Role |
+|---|---|---|
+| `InpDryRun` | true | Simulated vs live fills |
+| `InpRiskPerBasket` | 0.0125 | 1.25% equity budget |
+| `InpBasketDdLimit` | 0.0125 | Per-basket float DD cap |
+| `InpDailyDdLimit` | 0.025 | Daily halt |
+| `InpBaselineSpread` | 0.30 | Regime spread reference |
+| `InpManualLevelEnable` | false | Parity / tester level |
+
+## Anti-blowup (always on)
+
+- Basket / daily / weekly DD circuit breakers
+- Margin cap 25%
+- 2 defensive shutdowns → session halt
+- Emergency flatten → 4h cooldown
+- Normal basket exit → 30m cooldown
+
+## Telemetry
+
+`Common/Files/RLVR_events.csv` — same schema as Python harness.
+
+Events include: `SWEEP_START`, `RECLAIM`, `R0_OPEN`, `R1_ADD`…`R4_ADD`, `PARTIAL_CLOSE`, `BASKET_TP`, `TRAIL_EXIT`, `FLATTEN`, `INVALIDATION`.
+
+## Parity validation
 
 ```bash
+python3 -m unittest discover -s tools/rlvr_replay/tests -v
+
 python3 -m tools.rlvr_replay.parity_compare \
-  tools/rlvr_replay/fixtures/upside_sweep_reclaim_m5.csv \
   --python-events /tmp/py_events.csv \
   --mt5-events /path/to/RLVR_events.csv
 ```
 
-## Parity rules
+## Docs
 
-Python `sweep.py` / `reclaim.py` / `invalidation.py` are the reference. MQL5 must match on:
+- [Formal spec](../docs/rlvr/RLVR-FORMAL-SPECIFICATION.md)
+- [LevelsEngine](../docs/rlvr/modules/LEVELS-ENGINE-PSEUDOCODE.md)
+- [SweepDetector](../docs/rlvr/modules/SWEEP-DETECTOR-PSEUDOCODE.md)
 
-- `event_type`
-- `level_id`
-- `direction` (when present)
+## v2.1 backlog
 
-`bar_index` may differ (internal counter); timestamps should align within one M5 bar.
-
-## Module docs
-
-- [LevelsEngine pseudocode](../docs/rlvr/modules/LEVELS-ENGINE-PSEUDOCODE.md)
-- [SweepDetector pseudocode](../docs/rlvr/modules/SWEEP-DETECTOR-PSEUDOCODE.md)
-- [Formal specification](../docs/rlvr/RLVR-FORMAL-SPECIFICATION.md)
-
-## v1 scope
-
-- Dry-run only (no `OrderSend`)
-- Levels: PDH/PDL, session H/L, round, manual
-- EQH/EQL: not in v1 (see LevelsEngine doc)
-- Recovery / basket: not in v1
+- EQH/EQL fractal levels
+- News CSV gate
+- ATR percentile vol regime (p20–p95)
+- Freeze `entry_atr_m5` at sweep start
+- Broker SL for compliance on deep baskets

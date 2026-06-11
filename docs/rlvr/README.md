@@ -28,6 +28,15 @@ Implementation-ready design package for the XAUUSD bounded-martingale system.
 | [modules/LEVELS-ENGINE-PSEUDOCODE.md](./modules/LEVELS-ENGINE-PSEUDOCODE.md) | LevelsEngine deep-dive |
 | [MQL5/README.md](../../MQL5/README.md) | MT5 dry-run EA install + parity |
 
-## Next step
+## Full build status (v2)
 
-Run Strategy Tester dry-run on XAUUSD M5 and verify parity via `tools/rlvr_replay/parity_compare.py`. Then implement RecoveryEngine (spec §11–12).
+| Module | MQL5 | Python harness |
+|---|---|---|
+| LevelsEngine | Yes | PDH/PDL subset |
+| Sweep / Reclaim / Invalidation | Yes | Yes |
+| Entry R0 + Recovery R1–R4 | Yes | `basket_sim.py` |
+| Exit (partial, TP, trail, time) | Yes | — |
+| Risk + AntiBlowup | Yes | — |
+| Regime filter | Simplified v1 | — |
+
+**Next:** Strategy Tester dry-run → parity compare → micro-live with `InpDryRun=false`.
