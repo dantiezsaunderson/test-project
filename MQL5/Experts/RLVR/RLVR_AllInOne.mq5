@@ -1082,6 +1082,7 @@ public:
                SReplayEvent &events[]) const
      {
       int count = 0;
+      ArrayResize(events, RLVR_MAX_EVENTS_PER_BAR);
       if(atr_m5 <= 0.0)
          return 0;
 
