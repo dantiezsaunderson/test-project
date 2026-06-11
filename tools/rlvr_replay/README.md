@@ -110,7 +110,23 @@ tools/rlvr_replay/
 
 ---
 
+## Parity check (Python vs MT5)
+
+```bash
+# Generate Python reference + compare to MT5 telemetry export
+python3 -m tools.rlvr_replay fixtures/upside_sweep_reclaim_m5.csv \
+  --levels-csv fixtures/manual_level_2400.csv \
+  --no-pdh-pdl \
+  --output /tmp/py_events.csv
+
+python3 -m tools.rlvr_replay.parity_compare \
+  --python-events /tmp/py_events.csv \
+  --mt5-events /path/to/terminal/Common/Files/RLVR_events.csv
+```
+
 ## Deep-dive docs
 
-- SweepDetector pseudocode: `docs/rlvr/modules/SWEEP-DETECTOR-PSEUDOCODE.md`
+- LevelsEngine: `docs/rlvr/modules/LEVELS-ENGINE-PSEUDOCODE.md`
+- SweepDetector: `docs/rlvr/modules/SWEEP-DETECTOR-PSEUDOCODE.md`
 - Full system spec: `docs/rlvr/RLVR-FORMAL-SPECIFICATION.md`
+- MQL5 scaffold: `MQL5/README.md`

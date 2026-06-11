@@ -25,7 +25,9 @@ Implementation-ready design package for the XAUUSD bounded-martingale system.
 |---|---|
 | [tools/rlvr_replay/](../../tools/rlvr_replay/) | CSV replay harness + unit tests |
 | [modules/SWEEP-DETECTOR-PSEUDOCODE.md](./modules/SWEEP-DETECTOR-PSEUDOCODE.md) | SweepDetector deep-dive |
+| [modules/LEVELS-ENGINE-PSEUDOCODE.md](./modules/LEVELS-ENGINE-PSEUDOCODE.md) | LevelsEngine deep-dive |
+| [MQL5/README.md](../../MQL5/README.md) | MT5 dry-run EA install + parity |
 
 ## Next step
 
-MQL5 scaffold under `MQL5/Experts/RLVR/` per specification Section 19.1, with sweep logic matching `tools/rlvr_replay/sweep.py`.
+Run Strategy Tester dry-run on XAUUSD M5 and verify parity via `tools/rlvr_replay/parity_compare.py`. Then implement RecoveryEngine (spec §11–12).
